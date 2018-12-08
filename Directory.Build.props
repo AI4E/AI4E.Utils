@@ -1,0 +1,41 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" Condition="exists($([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../')))" />
+
+  <PropertyGroup>
+    <RepositoryRoot Condition="'$(RepositoryRoot)' == ''">$(MSBuildThisFileDirectory)</RepositoryRoot>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <LangVersion>latest</LangVersion>
+    <SolutionDir>$(RepositoryRoot)</SolutionDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RepositoryRootPath>$(RepositoryRoot)\</RepositoryRootPath>
+    <RootOutputPath>$(RepositoryRootPath)artifacts\bin\</RootOutputPath>
+    <RootIntermediateOutputPath>$(RepositoryRootPath)artifacts\obj\</RootIntermediateOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RootOutputPath)' != ''">
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$(RootOutputPath)$(MSBuildProjectName)\</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RootIntermediateOutputPath)' != ''">
+    <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)' == ''">$(RootIntermediateOutputPath)$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\</IntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <RestoreOutputPath>$(BaseIntermediateOutputPath)</RestoreOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SystemBuffersVersion Condition="'$(SystemBuffersVersion)' == ''">4.5.0</SystemBuffersVersion>
+    <SystemCollectionsImmutableVersion Condition="'$(SystemCollectionsImmutableVersion)' == ''">1.5.0</SystemCollectionsImmutableVersion>
+    <SystemInteractiveAsyncVersion Condition="'$(SystemInteractiveAsyncVersion)' == ''">3.2.0</SystemInteractiveAsyncVersion>
+    <SystemMemoryVersion Condition="'$(SystemMemoryVersion)' == ''">4.5.1</SystemMemoryVersion>
+    <SystemNumericsVectorsVersion Condition="'$(SystemNumericsVectorsVersion)' == ''">4.5.0</SystemNumericsVectorsVersion>
+    <SystemRuntimeCompilerServicesUnsafeVersion Condition="'$(SystemRuntimeCompilerServicesUnsafeVersion)' == ''">4.5.2</SystemRuntimeCompilerServicesUnsafeVersion>
+    <SystemThreadingTasksExtensionsVersion Condition="'$(SystemThreadingTasksExtensionsVersion)' == ''">4.5.1</SystemThreadingTasksExtensionsVersion>
+    <MicrosoftExtensionsDependencyInjectionAbstractionsVersion Condition="'$(MicrosoftExtensionsDependencyInjectionAbstractionsVersion)' == ''">2.1.1</MicrosoftExtensionsDependencyInjectionAbstractionsVersion>
+    <MicrosoftExtensionsLoggingAbstractionsVersion Condition="'$(MicrosoftExtensionsLoggingAbstractionsVersion)' == ''">2.1.1</MicrosoftExtensionsLoggingAbstractionsVersion>
+    <NitoAsyncExCoordinationVersion Condition="'$(NitoAsyncExCoordinationVersion)' == ''">1.0.2</NitoAsyncExCoordinationVersion>
+  </PropertyGroup>
+</Project>
