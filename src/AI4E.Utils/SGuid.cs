@@ -1,4 +1,4 @@
-﻿/* License
+/* License
  * --------------------------------------------------------------------------------------------------------------------
  * This file is part of the AI4E distribution.
  *   (https://github.com/AI4E/AI4E.Utils)
@@ -25,24 +25,16 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 
-namespace AI4E
-#if AI4E_DOMAIN
-    .Domain
-#else 
-    .Utils
-#endif
+namespace AI4E.Utils
+
 {
     /// <summary>
     /// Represents a globally unique identifier (GUID) with a
     /// shorter string value. Sguid
     /// </summary>
     [DebuggerDisplay("{Guid} ({Value})")]
-#if AI4E_DOMAIN
-    public
-#else
-    internal
-#endif
-    readonly struct SGuid : IEquatable<SGuid>
+
+    public readonly struct SGuid : IEquatable<SGuid>
     {
         #region Fields
 

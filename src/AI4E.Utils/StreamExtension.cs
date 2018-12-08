@@ -26,7 +26,7 @@ using System.Threading.Tasks;
 
 namespace AI4E.Utils
 {
-    internal static partial class StreamExtension
+    public static class StreamExtension
     {
         public static async Task ReadExactAsync(this Stream stream, byte[] buffer, int offset, int count, CancellationToken cancellation)
         {

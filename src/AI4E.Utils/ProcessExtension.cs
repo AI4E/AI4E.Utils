@@ -7,7 +7,7 @@ namespace AI4E.Utils
 {
     public static class ProcessExtension
     {
-        internal static Task WaitForExitAsync(this Process process, CancellationToken cancellation = default)
+        public static Task WaitForExitAsync(this Process process, CancellationToken cancellation = default)
         {
             if (process == null)
                 throw new ArgumentNullException(nameof(process));
