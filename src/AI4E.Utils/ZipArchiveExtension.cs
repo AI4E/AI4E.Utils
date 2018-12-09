@@ -28,6 +28,7 @@
  */
 
 using System;
+using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
@@ -108,6 +109,43 @@ namespace AI4E.Utils
             foreach (var entry in source.Entries)
             {
                 await entry.ExtractRelativeToDirectoryAsync(destinationDirectoryName, overwrite, cancellation);
+            }
+        }
+
+        public static async Task AddFileAsEntryAsync(
+            this ZipArchive archive,
+            string entryName,
+            CompressionLevel compressionLevel,
+            string filePath,
+            CancellationToken cancellation)
+        {
+            if (archive == null)
+                throw new ArgumentNullException(nameof(archive));
+
+            var entry = archive.CreateEntry(entryName, compressionLevel);
+
+            using (var entryStream = entry.Open())
+            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None, bufferSize: 4096, useAsync: true))
+            {
+                await fileStream.CopyToAsync(entryStream, bufferSize: 4096, cancellation);
+            }
+        }
+
+        public static async Task AddFileAsEntryAsync(
+            this ZipArchive archive,
+            string entryName,
+            string filePath,
+            CancellationToken cancellation)
+        {
+            if (archive == null)
+                throw new ArgumentNullException(nameof(archive));
+
+            var entry = archive.CreateEntry(entryName);
+
+            using (var entryStream = entry.Open())
+            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None, bufferSize: 4096, useAsync: true))
+            {
+                await fileStream.CopyToAsync(entryStream, bufferSize: 4096, cancellation);
             }
         }
     }
