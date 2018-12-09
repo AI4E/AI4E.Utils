@@ -180,10 +180,20 @@ namespace AI4E.Utils
         private static async Task InternalWithCancellation(Task task, CancellationToken cancellation)
         {
             var tcs = new TaskCompletionSource<object>();
+            var cancellationTask = tcs.Task;
 
             using (cancellation.Register(() => tcs.TrySetCanceled(cancellation), useSynchronizationContext: false))
             {
-                await await Task.WhenAny(tcs.Task, task).ConfigureAwait(false);
+                var completed = await Task.WhenAny(tcs.Task, task).ConfigureAwait(false);
+
+                if (completed == cancellationTask)
+                {
+                    Debug.Assert(cancellation.IsCancellationRequested);
+
+                    task.HandleExceptions();
+                }
+
+                await completed;
             }
         }
 
@@ -208,10 +218,20 @@ namespace AI4E.Utils
         private static async Task<T> InternalWithCancellation<T>(Task<T> task, CancellationToken cancellation)
         {
             var tcs = new TaskCompletionSource<T>();
+            var cancellationTask = tcs.Task;
 
             using (cancellation.Register(() => tcs.TrySetCanceled(cancellation), useSynchronizationContext: false))
             {
-                return await await Task.WhenAny(tcs.Task, task).ConfigureAwait(false);
+                var completed = await Task.WhenAny(tcs.Task, task).ConfigureAwait(false);
+
+                if (completed == cancellationTask)
+                {
+                    Debug.Assert(cancellation.IsCancellationRequested);
+
+                    task.HandleExceptions();
+                }
+
+                return await completed;
             }
         }
 
