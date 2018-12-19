@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace AI4E.Utils
 {
-    public static class ServiceCollectionExtension
+    public static partial class ServiceCollectionExtension
     {
         public static T GetService<T>(this IServiceCollection services)
         {
