@@ -46,5 +46,34 @@ namespace AI4E.Utils
             return true;
         }
 #endif
+
+        public static TValue GetOrAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, TValue value)
+        {
+            if (dictionary == null)
+                throw new ArgumentNullException(nameof(dictionary));
+
+            if (dictionary.TryGetValue(key, out var result))
+                return result;
+
+            dictionary.Add(key, value);
+            return value;
+
+        }
+
+        public static TValue GetOrAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> factory)
+        {
+            if (dictionary == null)
+                throw new ArgumentNullException(nameof(dictionary));
+
+            if (factory == null)
+                throw new ArgumentNullException(nameof(factory));
+
+            if (dictionary.TryGetValue(key, out var result))
+                return result;
+
+            result = factory(key);
+            dictionary.Add(key, result);
+            return result;
+        }
     }
 }
