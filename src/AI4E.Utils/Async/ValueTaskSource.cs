@@ -281,6 +281,7 @@ namespace AI4E.Utils.Async
             Debug.Assert(!result.Exhausted);
             Debug.Assert(result._state._continuation == default);
             Debug.Assert(result._state._result == default);
+            Debug.Assert(result._state._completing == default);
             Debug.Assert(result._state._completed == default);
             Debug.Assert(result._state._exception == default);
             Debug.Assert(result._state._continuationState == default);
