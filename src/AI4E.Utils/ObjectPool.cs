@@ -78,7 +78,7 @@ namespace AI4E.Utils
         // expand. compared to "new T()", Func gives more flexibility to implementers and faster
         // than "new T()".
         private readonly Func<T> _factory;
-        private readonly Func<T, bool> _reusable;
+        private readonly Func<T, bool> _isReusable;
         private readonly bool _detectLeaks;
 
         private static bool AlwaysReusable(T t)
@@ -90,19 +90,19 @@ namespace AI4E.Utils
             : this(factory, AlwaysReusable, Environment.ProcessorCount * 2)
         { }
 
-        public ObjectPool(Func<T> factory, Func<T, bool> reusable, int size, bool detectLeaks = false)
+        public ObjectPool(Func<T> factory, Func<T, bool> isReusable, int size, bool detectLeaks = false)
         {
             if (factory == null)
                 throw new ArgumentNullException(nameof(factory));
 
-            if (reusable == null)
-                throw new ArgumentNullException(nameof(reusable));
+            if (isReusable == null)
+                throw new ArgumentNullException(nameof(isReusable));
 
             if (size < 1)
                 throw new ArgumentOutOfRangeException(nameof(size));
 
             _factory = factory;
-            _reusable = reusable;
+            _isReusable = isReusable;
             _detectLeaks = detectLeaks;
             _items = new Element[size - 1];
         }
@@ -215,7 +215,7 @@ namespace AI4E.Utils
                 ForgetTrackedObject(obj);
             }
 
-            if (!_reusable(obj))
+            if (!_isReusable(obj))
             {
                 return;
             }
