@@ -328,19 +328,21 @@ namespace AI4E.Utils.Async
 
         private bool TrySetCompleted(Exception exception, T result)
         {
-            // We lock the this object here, which is bad practice normally.
-            // We can do this here as this class is not public and we are trying not to allocate.
-            lock (this)
+            if (_state._completing != 0)
             {
-                if (_state._completed)
-                {
-                    return false;
-                }
-
-                _state._exception = exception;
-                _state._result = result;
-                _state._completed = true;
+                return false;
             }
+
+            var completing = Interlocked.Exchange(ref _state._completing, 1);
+
+            if (completing != 0)
+            {
+                return false;
+            }
+
+            _state._exception = exception;
+            _state._result = result;
+            Volatile.Write(ref _state._completed, true);
 
             return true;
         }
@@ -396,17 +398,12 @@ namespace AI4E.Utils.Async
                 ThrowMultipleContinuations();
             }
 
-            // We lock the this object here, which is bad practice normally.
-            // We can do this here as this class is not public and we are trying not to allocate.
-            lock (this)
+            if (!Volatile.Read(ref _state._completed))
             {
-                if (!_state._completed)
-                {
-                    return ValueTaskSourceStatus.Pending;
-                }
-
-                return _state._exception != null ? ValueTaskSourceStatus.Succeeded : ValueTaskSourceStatus.Faulted;
+                return ValueTaskSourceStatus.Pending;
             }
+
+            return _state._exception != null ? ValueTaskSourceStatus.Succeeded : ValueTaskSourceStatus.Faulted;
         }
 
         public void OnCompleted(Action<object> continuation, object state, short token, ValueTaskSourceOnCompletedFlags flags)
@@ -572,6 +569,7 @@ namespace AI4E.Utils.Async
         {
             public Action<object> _continuation;
             public T _result;
+            public int _completing;
             public bool _completed;
             public Exception _exception;
             public object _continuationState;
