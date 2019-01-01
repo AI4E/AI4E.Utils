@@ -37,7 +37,7 @@ namespace AI4E.Utils
 {
     public sealed class ParameterExpressionReplacer
     {
-        private static ObjectPool<ReplacerExpressionVisitor> _pool;
+        private static readonly ObjectPool<ReplacerExpressionVisitor> _pool;
 
         static ParameterExpressionReplacer()
         {
@@ -55,22 +55,10 @@ namespace AI4E.Utils
             if (replacement == null)
                 throw new ArgumentNullException(nameof(replacement));
 
-            ReplacerExpressionVisitor parameterExpressionReplacer = null;
-
-            // TODO: Implement a RAII style object rental that can be used like the following:
-            //       using(var rentedObject = _pool.RentObject()) { var parameterExpressionReplacer = rentedObject.Value; [...]}
-            try
+            using (_pool.Rent(out var replaceExpressionVisitor))
             {
-                parameterExpressionReplacer = _pool.GetObject();
-                parameterExpressionReplacer.SetExpressions(parameter, replacement);
-                return parameterExpressionReplacer.Visit(expression);
-            }
-            finally
-            {
-                if (parameterExpressionReplacer != null)
-                {
-                    _pool.PutObject(parameterExpressionReplacer);
-                }
+                replaceExpressionVisitor.SetExpressions(parameter, replacement);
+                return replaceExpressionVisitor.Visit(expression);
             }
         }
 

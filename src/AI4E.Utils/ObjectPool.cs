@@ -3,6 +3,10 @@
  * Filename:        ObjectPool.cs 
  * Types:           (1) AI4E.Utils.ObjectPool`1
  *                  (2) AI4E.Utils.ObjectPool`1.Element
+ *                  (3) AI4E.Utils.ObjectPool`1.LeakTracker
+ *                  (4) AI4E.Utils.ObjectPool
+ *                  (5) AI4E.Utils.ObjectPoolExtension
+ *                  (6) AI4E.Utils.ObjectPoolExtension.PooledObjectReturner`1
  * Version:         1.0
  * Author:          Andreas Trütschel
  * --------------------------------------------------------------------------------------------------------------------
@@ -81,13 +85,10 @@ namespace AI4E.Utils
         private readonly Func<T, bool> _isReusable;
         private readonly bool _detectLeaks;
 
-        private static bool AlwaysReusable(T t)
-        {
-            return true;
-        }
+        public static int DefaultSize => ObjectPool.DefaultSize;
 
         public ObjectPool(Func<T> factory)
-            : this(factory, AlwaysReusable, Environment.ProcessorCount * 2)
+            : this(factory, _ => true, DefaultSize)
         { }
 
         public ObjectPool(Func<T> factory, Func<T, bool> isReusable, int size, bool detectLeaks = false)
@@ -113,18 +114,6 @@ namespace AI4E.Utils
             return inst;
         }
 
-        [Obsolete("Use Allocate()")]
-        public T GetObject()
-        {
-            return Allocate();
-        }
-
-        [Obsolete("Use Free()")]
-        public void PutObject(T item)
-        {
-            Free(item);
-        }
-
         /// <summary>
         /// Produces an instance.
         /// </summary>
@@ -133,7 +122,7 @@ namespace AI4E.Utils
         /// Note that Free will try to store recycled objects close to the start thus statistically 
         /// reducing how far we will typically search.
         /// </remarks>
-        public T Allocate()
+        public T Rent()
         {
             // PERF: Examine the first element. If that fails, AllocateSlow will look at the remaining elements.
             // Note that the initial read is optimistically not synchronized. That is intentional. 
@@ -142,7 +131,7 @@ namespace AI4E.Utils
             var inst = _firstItem;
             if (inst == null || inst != Interlocked.CompareExchange(ref _firstItem, null, inst))
             {
-                inst = AllocateSlow();
+                inst = RentSlow();
             }
 
             if (_detectLeaks)
@@ -157,7 +146,7 @@ namespace AI4E.Utils
             return inst;
         }
 
-        private T AllocateSlow()
+        private T RentSlow()
         {
             var items = _items;
 
@@ -187,7 +176,7 @@ namespace AI4E.Utils
         /// Note that Free will try to store recycled objects close to the start thus statistically 
         /// reducing how far we will typically search in Allocate.
         /// </remarks>
-        public void Free(T obj)
+        public void Return(T obj)
         {
             if (obj == null)
                 throw new ArgumentNullException(nameof(obj));
@@ -229,11 +218,11 @@ namespace AI4E.Utils
             }
             else
             {
-                FreeSlow(obj);
+                ReturnSlow(obj);
             }
         }
 
-        private void FreeSlow(T obj)
+        private void ReturnSlow(T obj)
         {
             var items = _items;
             for (var i = 0; i < items.Length; i++)
@@ -317,27 +306,55 @@ namespace AI4E.Utils
         }
     }
 
+    public static class ObjectPool
+    {
+        public static int DefaultSize { get; } = Environment.ProcessorCount * 2;
+
+        public static ObjectPool<T> Create<T>()
+            where T : class, new()
+        {
+            return new ObjectPool<T>(() => new T());
+        }
+
+        public static ObjectPool<T> Create<T>(Func<T> factory)
+            where T : class
+        {
+            return new ObjectPool<T>(factory);
+        }
+
+        public static ObjectPool<T> Create<T>(Func<T> factory, Func<T, bool> isReusable, int size, bool detectLeaks = false)
+            where T : class
+        {
+            return new ObjectPool<T>(factory, isReusable, size, detectLeaks);
+        }
+
+        public static ObjectPool<T> Create<T>(Func<T, bool> isReusable, int size, bool detectLeaks = false)
+           where T : class, new()
+        {
+            return new ObjectPool<T>(() => new T(), isReusable, size, detectLeaks);
+        }
+    }
+
     public static class ObjectPoolExtension
     {
-        public static PooledObjectDisposer<T> Allocate<T>(this ObjectPool<T> objectPool, out T obj)
+        public static PooledObjectReturner<T> Rent<T>(this ObjectPool<T> objectPool, out T obj)
             where T : class
         {
             if (objectPool == null)
                 throw new ArgumentNullException(nameof(objectPool));
 
-            obj = objectPool.Allocate();
+            obj = objectPool.Rent();
 
-            return new PooledObjectDisposer<T>(objectPool, obj);
+            return new PooledObjectReturner<T>(objectPool, obj);
         }
 
-        // TODO: Rename
-        public readonly struct PooledObjectDisposer<T> : IDisposable
+        public readonly struct PooledObjectReturner<T> : IDisposable
             where T : class
         {
             private readonly ObjectPool<T> _objectPool;
             private readonly T _obj;
 
-            public PooledObjectDisposer(ObjectPool<T> objectPool, T obj)
+            public PooledObjectReturner(ObjectPool<T> objectPool, T obj)
             {
                 if (objectPool == null)
                     throw new ArgumentNullException(nameof(objectPool));
@@ -351,7 +368,7 @@ namespace AI4E.Utils
 
             public void Dispose()
             {
-                _objectPool.Free(_obj);
+                _objectPool.Return(_obj);
             }
         }
     }

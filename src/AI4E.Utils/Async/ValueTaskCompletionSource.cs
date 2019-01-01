@@ -244,25 +244,12 @@ namespace AI4E.Utils.Async
         #region Pooling
 
         private static readonly ObjectPool<ValueTaskSource<T>> _pool = CreatePool();
-        private static readonly ObjectPool<SynchronizationContextPostState> _synchronizationContextPostStatePool = CreateSynchronizationContextPostStatePool();
-        private static readonly ObjectPool<ExecutionContextRunState> _executionContextRunStatePool = CreateExecutionContextRunStatePool();
+        private static readonly ObjectPool<SynchronizationContextPostState> _synchronizationContextPostStatePool = ObjectPool.Create<SynchronizationContextPostState>();
+        private static readonly ObjectPool<ExecutionContextRunState> _executionContextRunStatePool = ObjectPool.Create<ExecutionContextRunState>();
 
         private static ObjectPool<ValueTaskSource<T>> CreatePool()
         {
-            return new ObjectPool<ValueTaskSource<T>>(
-                factory: () => new ValueTaskSource<T>(),
-                isReusable: p => !p.Exhausted,
-                size: Environment.ProcessorCount * 2);
-        }
-
-        private static ObjectPool<SynchronizationContextPostState> CreateSynchronizationContextPostStatePool()
-        {
-            return new ObjectPool<SynchronizationContextPostState>(() => new SynchronizationContextPostState());
-        }
-
-        private static ObjectPool<ExecutionContextRunState> CreateExecutionContextRunStatePool()
-        {
-            return new ObjectPool<ExecutionContextRunState>(() => new ExecutionContextRunState());
+            return ObjectPool.Create<ValueTaskSource<T>>(isReusable: p => !p.Exhausted, size: ObjectPool.DefaultSize);
         }
 
         #endregion
@@ -277,7 +264,7 @@ namespace AI4E.Utils.Async
 
         internal static ValueTaskSource<T> Allocate()
         {
-            var result = _pool.Allocate();
+            var result = _pool.Rent();
             Debug.Assert(!result.Exhausted);
             Debug.Assert(result._state._continuation == default);
             Debug.Assert(result._state._result == default);
@@ -367,7 +354,7 @@ namespace AI4E.Utils.Async
                     // explicitly uses the awaiter's OnCompleted instead.
                     _state._executionContext = null;
 
-                    var executionContextRunState = _executionContextRunStatePool.Allocate();
+                    var executionContextRunState = _executionContextRunStatePool.Rent();
                     executionContextRunState.ValueTaskSource = this;
                     executionContextRunState.PreviousContinuation = previousContinuation;
                     executionContextRunState.State = _state._continuationState;
@@ -381,7 +368,7 @@ namespace AI4E.Utils.Async
                         }
                         finally
                         {
-                            _executionContextRunStatePool.Free(t);
+                            _executionContextRunStatePool.Return(t);
                         }
                     }
 
@@ -503,7 +490,7 @@ namespace AI4E.Utils.Async
                 Token++;
                 _state = new State();
             }
-            _pool.Free(this);
+            _pool.Return(this);
             return result;
         }
 
@@ -516,7 +503,7 @@ namespace AI4E.Utils.Async
             {
                 if (_state._scheduler is SynchronizationContext synchronizationContext)
                 {
-                    var synchronizationContextPostState = _synchronizationContextPostStatePool.Allocate();
+                    var synchronizationContextPostState = _synchronizationContextPostStatePool.Rent();
                     synchronizationContextPostState.Continuation = continuation;
                     synchronizationContextPostState.State = state;
 
@@ -529,7 +516,7 @@ namespace AI4E.Utils.Async
                         }
                         finally
                         {
-                            _synchronizationContextPostStatePool.Free(t);
+                            _synchronizationContextPostStatePool.Return(t);
                         }
                     }
 
