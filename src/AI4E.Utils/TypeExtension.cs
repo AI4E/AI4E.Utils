@@ -112,6 +112,33 @@ namespace AI4E.Utils
             return type.IsSubclassOf(typeof(Delegate));
         }
 
+        /// <summary>
+        /// Checks whether the type is an ordinary class and specially not any of:
+        /// - A value type
+        /// - A delegate
+        /// - A generic type definition
+        /// - The type <see cref="object"/>, <see cref="Enum"/> or <see cref="ValueType"/>
+        /// </summary>
+        /// <param name="type">The type to check.</param>
+        /// <returns>True if <paramref name="type"/> is an ordinary class, false otherwise.</returns>
+        public static bool IsOrdinaryClass(this Type type)
+        {
+            if (type.IsValueType)
+                return false;
+
+            if (type.IsDelegate())
+                return false;
+
+            if (type.IsGenericTypeDefinition)
+                return false;
+
+            // TODO: Do we have to check for System.Void? It is defined as a value type, that we alread check for.
+            if (type == typeof(Enum) || type == typeof(ValueType) || type == typeof(void))
+                return false;
+
+            return true;
+        }
+
         // Based on: https://github.com/khellang/Scrutor/blob/master/src/Scrutor/ReflectionExtensions.cs
         public static bool IsAssignableTo(this Type type, Type otherType)
         {

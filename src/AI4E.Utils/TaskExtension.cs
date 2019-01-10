@@ -96,7 +96,55 @@ namespace AI4E.Utils
 
         #endregion
 
-        public static void HandleExceptions(this Task task, ILogger logger)
+        public static void HandleExceptions(this ValueTask valueTask, ILogger logger = null)
+        {
+            if (valueTask.IsCompletedSuccessfully)
+            {
+                return;
+            }
+
+            if (valueTask.IsCompleted)
+            {
+                try
+                {
+                    valueTask.GetAwaiter().GetResult();
+                }
+                catch (Exception exc)
+                {
+                    ExceptionHelper.LogException(exc, logger);
+                }
+
+                return;
+            }
+
+            HandleExceptions(valueTask.AsTask(), logger);
+        }
+
+        public static void HandleExceptions<T>(this ValueTask<T> valueTask, ILogger logger = null)
+        {
+            if (valueTask.IsCompletedSuccessfully)
+            {
+                return;
+            }
+
+            if (valueTask.IsCompleted)
+            {
+                try
+                {
+                    valueTask.GetAwaiter().GetResult();
+                }
+                catch (Exception exc)
+                {
+                    ExceptionHelper.LogException(exc, logger);
+                }
+
+                return;
+            }
+
+            HandleExceptions(valueTask.AsTask(), logger);
+        }
+
+        public static void HandleExceptions(this Task task, ILogger logger = null)
         {
             if (task == null)
                 throw new ArgumentNullException(nameof(task));
@@ -118,12 +166,7 @@ namespace AI4E.Utils
             });
         }
 
-        public static void HandleExceptions(this Task task)
-        {
-            HandleExceptions(task, logger: null);
-        }
-
-        public static Task HandleExceptionsAsync(this Task task, ILogger logger)
+        public static Task HandleExceptionsAsync(this Task task, ILogger logger = null)
         {
             if (task == null)
                 throw new ArgumentNullException(nameof(task));
@@ -131,32 +174,12 @@ namespace AI4E.Utils
             return ExceptionHelper.HandleExceptions(async () => await task, logger, Task.CompletedTask);
         }
 
-        public static Task HandleExceptionsAsync(this Task task)
-        {
-            return HandleExceptionsAsync(task, logger: null);
-        }
-
-        public static Task<T> HandleExceptionsAsync<T>(this Task<T> task, ILogger logger, T defaultValue)
+        public static Task<T> HandleExceptionsAsync<T>(this Task<T> task, T defaultValue = default, ILogger logger = null)
         {
             if (task == null)
                 throw new ArgumentNullException(nameof(task));
 
             return ExceptionHelper.HandleExceptions(async () => await task, logger, Task.FromResult(defaultValue));
-        }
-
-        public static Task<T> HandleExceptionsAsync<T>(this Task<T> task, T defaultValue)
-        {
-            return HandleExceptionsAsync(task, logger: default, defaultValue);
-        }
-
-        public static Task<T> HandleExceptionsAsync<T>(this Task<T> task, ILogger logger)
-        {
-            return HandleExceptionsAsync(task, logger, defaultValue: default);
-        }
-
-        public static Task<T> HandleExceptionsAsync<T>(this Task<T> task)
-        {
-            return HandleExceptionsAsync(task, logger: null, defaultValue: default);
         }
 
         public static Task WithCancellation(this Task task, CancellationToken cancellation)
@@ -237,9 +260,15 @@ namespace AI4E.Utils
 
         public static object GetResult(this Task t)
         {
-            t.Wait();
+            if (t == null)
+                throw new ArgumentNullException(nameof(t));
 
-            if (t.IsFaulted || t.IsCanceled || !t.GetType().IsGenericType || t.GetType().GetGenericArguments()[0] == Type.GetType("System.Threading.Tasks.VoidTaskResult"))
+            t.GetAwaiter().GetResult();
+
+            if (t.IsFaulted ||
+                t.IsCanceled ||
+               !t.GetType().IsGenericType ||
+                t.GetType().GetGenericArguments()[0] == Type.GetType("System.Threading.Tasks.VoidTaskResult"))
             {
                 return null;
             }
@@ -268,7 +297,7 @@ namespace AI4E.Utils
 
     public sealed class ExceptionHelper
     {
-        public static void HandleExceptions(Action action, ILogger logger)
+        public static void HandleExceptions(Action action, ILogger logger = null)
         {
             try
             {
@@ -288,7 +317,7 @@ namespace AI4E.Utils
             }
         }
 
-        public static T HandleExceptions<T>(Func<T> func, ILogger logger, T defaultValue = default)
+        public static T HandleExceptions<T>(Func<T> func, ILogger logger = null, T defaultValue = default)
         {
             try
             {
@@ -296,18 +325,23 @@ namespace AI4E.Utils
             }
             catch (Exception exc)
             {
-                if (logger != null)
-                {
-                    logger.LogError(exc, "An exception occured unexpectedly");
-                }
-                else
-                {
-                    Debug.WriteLine("An exception occured unexpectedly.");
-                    Debug.WriteLine(exc.ToString());
-                }
+                LogException(exc, logger);
             }
 
             return defaultValue;
+        }
+
+        public static void LogException(Exception exc, ILogger logger = null)
+        {
+            if (logger != null)
+            {
+                logger.LogError(exc, "An exception occured unexpectedly");
+            }
+            else
+            {
+                Debug.WriteLine("An exception occured unexpectedly.");
+                Debug.WriteLine(exc.ToString());
+            }
         }
     }
 }

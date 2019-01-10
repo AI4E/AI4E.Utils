@@ -25,6 +25,7 @@ using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils
@@ -60,9 +61,9 @@ foreach(var underlyingType in underlyingTypes.Keys)
 #>(underlyingType == typeof(<#= underlyingTypes[underlyingType] #>))
                 {
                     var values = (TEnum[])Enum.GetValues(enumType);
-                    var comparand = values.Select(p => CastTo<<#= underlyingTypes[underlyingType] #>>.From(p)).Aggregate(seed: (<#= underlyingTypes[underlyingType] #>)0, (e, c) => (<#= underlyingTypes[underlyingType] #>)(e | c));
+                    var comparand = values.Select(p => Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref p)).Aggregate(seed: (<#= underlyingTypes[underlyingType] #>)0, (e, c) => (<#= underlyingTypes[underlyingType] #>)(e | c));
 
-                    return value => ((CastTo<<#= underlyingTypes[underlyingType] #>>.From(value)) & ~comparand) == 0;
+                    return value => ((Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref value)) & ~comparand) == 0;
                 }
 <#
 	first = false;
@@ -88,7 +89,7 @@ foreach(var underlyingType in underlyingTypes.Keys)
 #>
                 if (underlyingType == typeof(<#= underlyingTypes[underlyingType] #>))
                 {
-                    return (value, flag) => (CastTo<<#= underlyingTypes[underlyingType] #>>.From(value) & CastTo<<#= underlyingTypes[underlyingType] #>>.From(flag)) != 0;
+                    return (value, flag) => (Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref value) & Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref flag)) != 0;
                 }
 
 <#
@@ -111,7 +112,7 @@ foreach(var underlyingType in underlyingTypes.Keys)
 
 			    if (underlyingType == typeof(<#= underlyingTypes[underlyingType] #>))
                 {
-                    var values = new HashSet<<#= underlyingTypes[underlyingType] #>>(((TEnum[])Enum.GetValues(enumType)).Select(p => CastTo<<#= underlyingTypes[underlyingType] #>>.From(p)));
+                    var values = new HashSet<<#= underlyingTypes[underlyingType] #>>(((TEnum[])Enum.GetValues(enumType)).Select(p => Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref p)));
 
                     if (values.Count == 0)
                     {
@@ -122,7 +123,7 @@ foreach(var underlyingType in underlyingTypes.Keys)
                     {
 				        // We evaluate this here, in order that the hash-set is not captured by the lambda but only the single value.
 				        var singleValue = values.First();
-                        return value => singleValue == CastTo<<#= underlyingTypes[underlyingType] #>>.From(value);
+                        return value => singleValue == Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref value);
                     }
 
                     var min = values.Min();
@@ -134,13 +135,13 @@ foreach(var underlyingType in underlyingTypes.Keys)
                     {
                         if (!values.Contains(i))
                         {
-                            return value => values.Contains(CastTo<<#= underlyingTypes[underlyingType] #>>.From(value));
+                            return value => values.Contains(Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref value));
                         }
                     }
 
                     return value =>
                     {
-                        var v = CastTo<<#= underlyingTypes[underlyingType] #>>.From(value);
+                        var v = Unsafe.As<TEnum, <#= underlyingTypes[underlyingType] #>>(ref value);
                         return v >= min && v <= max;
                     };
                 }

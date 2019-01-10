@@ -15,11 +15,30 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="EnumHelper.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>EnumHelper.g.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="EnumHelper.g.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>EnumHelper.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <!--<ItemGroup>
     <DotNetCliToolReference Include="T5.TextTransform.Tool" Version="1.1.0-*" />
   </ItemGroup>
 
   <Target Name="AfterRestore" AfterTargets="Restore;CollectPackageReferences">
     <Exec Command="dotnet tt $(ProjectDir)EnumHelper.tt" />
-  </Target>
+  </Target>-->
 
 </Project>

@@ -9,7 +9,7 @@ using System.Threading.Tasks.Sources;
 
 namespace AI4E.Utils.Async
 {
-    public readonly struct ValueTaskCompletionSource<T>
+    public readonly struct ValueTaskCompletionSource<T> : IEquatable<ValueTaskCompletionSource<T>>
     {
         private readonly ValueTaskSource<T> _source;
         private readonly short _token;
@@ -119,122 +119,30 @@ namespace AI4E.Utils.Async
             var source = ValueTaskSource<T>.Allocate();
             return new ValueTaskCompletionSource<T>(source);
         }
-    }
 
-    public readonly struct ValueTaskCompletionSource
-    {
-        private readonly ValueTaskSource<byte> _source;
-        private readonly short _token;
-
-        private ValueTaskCompletionSource(ValueTaskSource<byte> source)
+        public bool Equals(ValueTaskCompletionSource<T> other)
         {
-            Debug.Assert(source != null);
-            Debug.Assert(!source.Exhausted);
-
-            var token = source.Token;
-
-            _source = source;
-            _token = token;
-            Task = new ValueTask(source, token);
+            return _source == other._source && _token == other._token;
         }
 
-        public ValueTask Task { get; }
-
-        public bool TrySetCanceled()
+        public override bool Equals(object obj)
         {
-            return TrySetCanceled(cancellation: default);
+            return obj is ValueTaskCompletionSource<T> valueTaskCompletionSource && Equals(valueTaskCompletionSource);
         }
 
-        public bool TrySetCanceled(CancellationToken cancellation)
+        public override int GetHashCode()
         {
-            return _source?.TryNotifyCompletion(cancellation, _token) ?? false;
+            return (_source?.GetHashCode() ?? 0) * 34556421 + _token.GetHashCode();
         }
 
-        public bool TrySetException(Exception exception)
+        public static bool operator ==(in ValueTaskCompletionSource<T> left, in ValueTaskCompletionSource<T> right)
         {
-            if (exception == null)
-                throw new ArgumentNullException(nameof(exception));
-
-            return _source?.TryNotifyCompletion(exception, _token) ?? false;
+            return left.Equals(right);
         }
 
-        public bool TrySetException(IEnumerable<Exception> exceptions)
+        public static bool operator !=(in ValueTaskCompletionSource<T> left, in ValueTaskCompletionSource<T> right)
         {
-            if (exceptions == null)
-                throw new ArgumentNullException(nameof(exceptions));
-
-            var exception = exceptions.FirstOrDefault();
-
-            if (exception == null)
-            {
-                if (!exceptions.Any())
-                    throw new ArgumentException("The collection must not be empty.", nameof(exceptions));
-
-                throw new ArgumentException("The collection must not contain null entries.", nameof(exceptions));
-            }
-
-            return TrySetException(exception);
-        }
-
-        public bool TrySetResult()
-        {
-            return _source?.TryNotifyCompletion(0, _token) ?? false;
-        }
-
-        public void SetCanceled()
-        {
-            if (!TrySetCanceled())
-            {
-                ThrowAlreadyCompleted();
-            }
-        }
-
-        public void SetCanceled(CancellationToken cancellation)
-        {
-            if (!TrySetCanceled(cancellation))
-            {
-                ThrowAlreadyCompleted();
-            }
-        }
-
-        public void SetException(Exception exception)
-        {
-            if (!TrySetException(exception))
-            {
-                ThrowAlreadyCompleted();
-            }
-        }
-
-        public void SetException(IEnumerable<Exception> exceptions)
-        {
-            if (!TrySetException(exceptions))
-            {
-                ThrowAlreadyCompleted();
-            }
-        }
-
-        public void SetResult()
-        {
-            if (!TrySetResult())
-            {
-                ThrowAlreadyCompleted();
-            }
-        }
-
-        private static void ThrowAlreadyCompleted()
-        {
-            throw new InvalidOperationException("An attempt was made to transition a value task to a final state when it had already completed");
-        }
-
-        public static ValueTaskCompletionSource Create()
-        {
-            var source = ValueTaskSource<byte>.Allocate();
-            return new ValueTaskCompletionSource(source);
-        }
-
-        public static ValueTaskCompletionSource<T> Create<T>()
-        {
-            return ValueTaskCompletionSource<T>.Create();
+            return !left.Equals(right);
         }
     }
 
