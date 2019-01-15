@@ -30,12 +30,12 @@
     <SystemBuffersVersion Condition="'$(SystemBuffersVersion)' == ''">4.5.0</SystemBuffersVersion>
     <SystemCollectionsImmutableVersion Condition="'$(SystemCollectionsImmutableVersion)' == ''">1.5.0</SystemCollectionsImmutableVersion>
     <SystemInteractiveAsyncVersion Condition="'$(SystemInteractiveAsyncVersion)' == ''">3.2.0</SystemInteractiveAsyncVersion>
-    <SystemMemoryVersion Condition="'$(SystemMemoryVersion)' == ''">4.5.1</SystemMemoryVersion>
+    <SystemMemoryVersion Condition="'$(SystemMemoryVersion)' == ''">4.5.2</SystemMemoryVersion>
     <SystemNumericsVectorsVersion Condition="'$(SystemNumericsVectorsVersion)' == ''">4.5.0</SystemNumericsVectorsVersion>
     <SystemRuntimeCompilerServicesUnsafeVersion Condition="'$(SystemRuntimeCompilerServicesUnsafeVersion)' == ''">4.5.2</SystemRuntimeCompilerServicesUnsafeVersion>
-    <SystemThreadingTasksExtensionsVersion Condition="'$(SystemThreadingTasksExtensionsVersion)' == ''">4.5.1</SystemThreadingTasksExtensionsVersion>
-    <MicrosoftExtensionsDependencyInjectionAbstractionsVersion Condition="'$(MicrosoftExtensionsDependencyInjectionAbstractionsVersion)' == ''">2.1.1</MicrosoftExtensionsDependencyInjectionAbstractionsVersion>
-    <MicrosoftExtensionsLoggingAbstractionsVersion Condition="'$(MicrosoftExtensionsLoggingAbstractionsVersion)' == ''">2.1.1</MicrosoftExtensionsLoggingAbstractionsVersion>
+    <SystemThreadingTasksExtensionsVersion Condition="'$(SystemThreadingTasksExtensionsVersion)' == ''">4.5.2</SystemThreadingTasksExtensionsVersion>
+    <MicrosoftExtensionsDependencyInjectionAbstractionsVersion Condition="'$(MicrosoftExtensionsDependencyInjectionAbstractionsVersion)' == ''">2.2.0</MicrosoftExtensionsDependencyInjectionAbstractionsVersion>
+    <MicrosoftExtensionsLoggingAbstractionsVersion Condition="'$(MicrosoftExtensionsLoggingAbstractionsVersion)' == ''">2.2.0</MicrosoftExtensionsLoggingAbstractionsVersion>
     <NitoAsyncExCoordinationVersion Condition="'$(NitoAsyncExCoordinationVersion)' == ''">1.0.2</NitoAsyncExCoordinationVersion>
   </PropertyGroup>
 </Project>
