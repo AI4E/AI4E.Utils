@@ -37,19 +37,18 @@ namespace AI4E.Utils
             _entries = new Dictionary<TKey, (TaskCompletionSource<object> tcs, int refCount)>();
         }
 
-        public Task WaitForNotificationAsync(TKey key, CancellationToken cancellation)
+        public async Task WaitForNotificationAsync(TKey key, CancellationToken cancellation)
         {
             if (key == null)
                 throw new ArgumentNullException(nameof(key));
 
-            if (cancellation.IsCancellationRequested)
-                return Task.FromCanceled(cancellation);
+            cancellation.ThrowIfCancellationRequested();
 
             var waitEntry = AllocateWaitEntry(key);
 
             using (cancellation.Register(() => FreeWaitEntry(key)))
             {
-                return waitEntry.WithCancellation(cancellation);
+                await waitEntry.WithCancellation(cancellation);
             }
         }
 

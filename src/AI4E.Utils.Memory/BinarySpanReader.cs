@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers.Binary;
 using System.Text;
 using AI4E.Utils.Memory.Compatibility;
@@ -7,7 +7,6 @@ namespace AI4E.Utils.Memory
 {
     public ref struct BinarySpanReader
     {
-        private int _offset;
         private readonly bool _useLittleEndian;
 
         public BinarySpanReader(ReadOnlySpan<byte> span, ByteOrder byteOrder = ByteOrder.BigEndian)
@@ -19,7 +18,7 @@ namespace AI4E.Utils.Memory
 
             Span = span;
             ByteOrder = byteOrder;
-            _offset = 0;
+            Length = 0;
 
             if (byteOrder == ByteOrder.Native)
             {
@@ -34,8 +33,8 @@ namespace AI4E.Utils.Memory
         public ReadOnlySpan<byte> Span { get; }
         public ByteOrder ByteOrder { get; }
 
-        public ReadOnlySpan<byte> ReadSpan => Span.Slice(start: 0, length: _offset);
-        public int Length => ReadSpan.Length;
+        public ReadOnlySpan<byte> ReadSpan => Span.Slice(start: 0, length: Length);
+        public int Length { get; private set; }
 
         public bool CanAdvance(int count)
         {
@@ -45,7 +44,7 @@ namespace AI4E.Utils.Memory
             if (count == 0)
                 return true;
 
-            return Span.Length - _offset >= count;
+            return Span.Length - Length >= count;
         }
 
         public bool TryAdvance(int count)
@@ -55,7 +54,7 @@ namespace AI4E.Utils.Memory
 
             if (CanAdvance(count))
             {
-                _offset += count;
+                Length += count;
                 return true;
             }
 
@@ -69,7 +68,7 @@ namespace AI4E.Utils.Memory
 
         public byte ReadByte()
         {
-            return Span.Slice(_offset++)[0];
+            return Span.Slice(Length++)[0];
         }
 
         public sbyte ReadSByte()
@@ -87,8 +86,8 @@ namespace AI4E.Utils.Memory
         {
             EnsureSpace(count);
 
-            var result = Span.Slice(_offset, count);
-            _offset += count;
+            var result = Span.Slice(Length, count);
+            Length += count;
 
             return result;
         }
@@ -99,14 +98,14 @@ namespace AI4E.Utils.Memory
 
             if (_useLittleEndian)
             {
-                result = BinaryPrimitives.ReadUInt16LittleEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadUInt16LittleEndian(Span.Slice(Length));
             }
             else
             {
-                result = BinaryPrimitives.ReadUInt16BigEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadUInt16BigEndian(Span.Slice(Length));
             }
 
-            _offset += 2;
+            Length += 2;
 
             return result;
         }
@@ -117,14 +116,14 @@ namespace AI4E.Utils.Memory
 
             if (_useLittleEndian)
             {
-                result = BinaryPrimitives.ReadInt16LittleEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadInt16LittleEndian(Span.Slice(Length));
             }
             else
             {
-                result = BinaryPrimitives.ReadInt16BigEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadInt16BigEndian(Span.Slice(Length));
             }
 
-            _offset += 2;
+            Length += 2;
             return result;
         }
 
@@ -134,14 +133,14 @@ namespace AI4E.Utils.Memory
 
             if (_useLittleEndian)
             {
-                result = BinaryPrimitives.ReadUInt32LittleEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadUInt32LittleEndian(Span.Slice(Length));
             }
             else
             {
-                result = BinaryPrimitives.ReadUInt32BigEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadUInt32BigEndian(Span.Slice(Length));
             }
 
-            _offset += 4;
+            Length += 4;
             return result;
         }
 
@@ -150,14 +149,14 @@ namespace AI4E.Utils.Memory
             int result;
             if (_useLittleEndian)
             {
-                result = BinaryPrimitives.ReadInt32LittleEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadInt32LittleEndian(Span.Slice(Length));
             }
             else
             {
-                result = BinaryPrimitives.ReadInt32BigEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadInt32BigEndian(Span.Slice(Length));
             }
 
-            _offset += 4;
+            Length += 4;
             return result;
         }
 
@@ -166,14 +165,14 @@ namespace AI4E.Utils.Memory
             ulong result;
             if (_useLittleEndian)
             {
-                result = BinaryPrimitives.ReadUInt64LittleEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadUInt64LittleEndian(Span.Slice(Length));
             }
             else
             {
-                result = BinaryPrimitives.ReadUInt64BigEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadUInt64BigEndian(Span.Slice(Length));
             }
 
-            _offset += 8;
+            Length += 8;
             return result;
         }
 
@@ -183,14 +182,14 @@ namespace AI4E.Utils.Memory
 
             if (_useLittleEndian)
             {
-                result = BinaryPrimitives.ReadInt64LittleEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadInt64LittleEndian(Span.Slice(Length));
             }
             else
             {
-                result = BinaryPrimitives.ReadInt64BigEndian(Span.Slice(_offset));
+                result = BinaryPrimitives.ReadInt64BigEndian(Span.Slice(Length));
             }
 
-            _offset += 8;
+            Length += 8;
             return result;
         }
 
