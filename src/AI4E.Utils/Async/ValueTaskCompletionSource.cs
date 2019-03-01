@@ -340,7 +340,7 @@ namespace AI4E.Utils.Async
             var result = _pool.Rent();
             Debug.Assert(!result.Exhausted);
             Debug.Assert(result._state._continuation == default);
-            Debug.Assert(result._state._result == default);
+            Debug.Assert(EqualityComparer<T>.Default.Equals(result._state._result, default));
             Debug.Assert(result._state._completing == default);
             Debug.Assert(result._state._completed == default);
             Debug.Assert(result._state._exception == default);
