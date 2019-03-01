@@ -31,7 +31,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using AI4E.Utils.Async;
 
-namespace AI4E.Proxying
+namespace AI4E.Utils.Proxying
 {
     internal interface IProxy : IAsyncDisposable
     {

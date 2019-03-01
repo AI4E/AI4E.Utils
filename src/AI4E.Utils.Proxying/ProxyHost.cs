@@ -46,7 +46,7 @@ using Nito.AsyncEx;
 using System.Buffers.Binary;
 using System.Buffers;
 
-namespace AI4E.Proxying
+namespace AI4E.Utils.Proxying
 {
     public sealed class ProxyHost : IAsyncDisposable
     {

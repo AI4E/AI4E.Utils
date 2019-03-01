@@ -32,7 +32,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using AI4E.Utils.Async;
 
-namespace AI4E.Proxying
+namespace AI4E.Utils.Proxying
 {
     public sealed class Proxy<TRemote> : IProxy<TRemote>, IProxy
         where TRemote : class
