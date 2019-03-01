@@ -5,7 +5,7 @@
  * 
  * MIT License
  * 
- * Copyright (c) 2019 Andreas Truetschel and contributors.
+ * Copyright (c) 2018-2019 Andreas Truetschel and contributors.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -72,10 +72,10 @@ namespace AI4E.Utils
         private static readonly MethodInfo _memberwiseCloneMethod = _objectType.GetMethod("MemberwiseClone", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly PropertyInfo _objectDictionaryTypeIndexerProperty = _objectDictionaryType.GetProperty("Item");
 
-        private static readonly Type FieldInfoType = typeof(FieldInfo);
-        private static readonly MethodInfo SetValueMethod = FieldInfoType.GetMethod("SetValue", new[] { _objectType, _objectType });
-        private static readonly Type ThisType = typeof(CopyExpressionBuilder);
-        private static readonly MethodInfo DeepCopyByExpressionTreeObjMethod = ThisType.GetMethod(nameof(DeepCopyByExpressionTreeObj), BindingFlags.NonPublic | BindingFlags.Static);
+        private static readonly Type _fieldInfoType = typeof(FieldInfo);
+        private static readonly MethodInfo _setValueMethod = _fieldInfoType.GetMethod("SetValue", new[] { _objectType, _objectType });
+        private static readonly Type _thisType = typeof(CopyExpressionBuilder);
+        private static readonly MethodInfo _deepCopyByExpressionTreeObjMethod = _thisType.GetMethod(nameof(DeepCopyByExpressionTreeObj), BindingFlags.NonPublic | BindingFlags.Static);
         private static readonly ConcurrentDictionary<Type, Func<object, Dictionary<object, object>, object>> _compiledCopyFunctions =
                     new ConcurrentDictionary<Type, Func<object, Dictionary<object, object>, object>>();
 
@@ -413,7 +413,7 @@ namespace AI4E.Utils
             var indexFrom = Expression.ArrayIndex(Expression.Convert(inputParameter, arrayType), indices);
             var forceDeepCopy = elementType != _objectType;
             var forceDeepCopyConstant = forceDeepCopy ? _trueConstantExpression : _falseConstantExpression;
-            var deepCopyCall = Expression.Call(DeepCopyByExpressionTreeObjMethod,
+            var deepCopyCall = Expression.Call(_deepCopyByExpressionTreeObjMethod,
                                                Expression.Convert(indexFrom, _objectType),
                                                forceDeepCopyConstant,
                                                 inputDictionary);
@@ -584,7 +584,7 @@ namespace AI4E.Utils
             var fieldToNullExpression =
                     Expression.Call(
                         Expression.Constant(field),
-                        SetValueMethod,
+                        _setValueMethod,
                         boxingVariable,
                         Expression.Constant(null, field.FieldType));
 
@@ -610,12 +610,12 @@ namespace AI4E.Utils
             var forceDeepCopy = field.FieldType != _objectType;
             var convertedFieldFrom = Expression.Convert(fieldFrom, _objectType);
             var forceDeepCopyConstant = forceDeepCopy ? _trueConstantExpression : _falseConstantExpression;
-            var deepCopyCall = Expression.Call(DeepCopyByExpressionTreeObjMethod,
+            var deepCopyCall = Expression.Call(_deepCopyByExpressionTreeObjMethod,
                                                convertedFieldFrom,
                                                forceDeepCopyConstant,
                                                inputDictionary);
 
-            var fieldDeepCopyExpression = Expression.Call(Expression.Constant(field, FieldInfoType), SetValueMethod, boxingVariable, deepCopyCall);
+            var fieldDeepCopyExpression = Expression.Call(Expression.Constant(field, _fieldInfoType), _setValueMethod, boxingVariable, deepCopyCall);
 
             expressions.Add(fieldDeepCopyExpression);
         }
@@ -650,7 +650,7 @@ namespace AI4E.Utils
             var forceDeepCopy = field.FieldType != _objectType;
             var convertedFieldFrom = Expression.Convert(fieldFrom, _objectType);
             var forceDeepCopyConstant = forceDeepCopy ? _trueConstantExpression : _falseConstantExpression;
-            var deepCopyCall = Expression.Call(DeepCopyByExpressionTreeObjMethod,
+            var deepCopyCall = Expression.Call(_deepCopyByExpressionTreeObjMethod,
                                                convertedFieldFrom,
                                                forceDeepCopyConstant,
                                                inputDictionary);

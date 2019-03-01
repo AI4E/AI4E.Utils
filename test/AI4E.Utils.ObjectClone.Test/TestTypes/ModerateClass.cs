@@ -1,4 +1,62 @@
-﻿using System;
+/* License
+ * --------------------------------------------------------------------------------------------------------------------
+ * This file is part of the AI4E distribution.
+ *   (https://github.com/AI4E/AI4E.Utils)
+ * 
+ * MIT License
+ * 
+ * Copyright (c) 2018-2019 Andreas Truetschel and contributors.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * --------------------------------------------------------------------------------------------------------------------
+ */
+
+/* Based on
+* --------------------------------------------------------------------------------------------------------------------
+* Fast Deep Copy by Expression Trees 
+* https://www.codeproject.com/articles/1111658/fast-deep-copy-by-expression-trees-c-sharp
+* 
+* MIT License
+* 
+* Copyright (c) 2014 - 2016 Frantisek Konopecky
+* 
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+* 
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+* 
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+* --------------------------------------------------------------------------------------------------------------------
+*/
+
+using System;
 
 namespace AI4E.Utils.ObjectClone.Test.TestTypes
 {
@@ -9,21 +67,23 @@ namespace AI4E.Utils.ObjectClone.Test.TestTypes
 
         protected bool PropertyProtected2 { get; set; }
 
-        public int FieldPublic2;
+        public int _fieldPublic2;
 
         private int PropertyPrivate { get; set; }
 
-        private string FieldPrivate;
+#pragma warning disable IDE0044
+        private string _fieldPrivate;
+#pragma warning restore IDE0044
 
-        public Struct StructField;
+        public Struct _structField;
 
-        public DeeperStruct DeeperStructField;
+        public DeeperStruct _deeperStructField;
         
-        public GenericClass<SimpleClass> GenericClassField; 
+        public GenericClass<SimpleClass> _genericClassField; 
 
         public SimpleClass SimpleClassProperty { get; set; }
 
-        public SimpleClass ReadonlySimpleClassField;
+        public SimpleClass _readonlySimpleClassField;
 
         public SimpleClass[] SimpleClassArray { get; set; }
 
@@ -33,31 +93,32 @@ namespace AI4E.Utils.ObjectClone.Test.TestTypes
             : base(propertyPrivate, propertyProtected, fieldPrivate)
         {
             PropertyPrivate = propertyPrivate + 1;
-            FieldPrivate = fieldPrivate + "_" + typeof(ModerateClass);
+            _fieldPrivate = fieldPrivate + "_" + typeof(ModerateClass);
             ObjectTextProperty = "Test";
         }
 
-        public static ModerateClass CreateForTests(int seed)
+        public static new ModerateClass CreateForTests(int seed)
         {
-            var moderateClass = new ModerateClass(seed, seed % 2 == 1, "seed_" + seed);
+            var moderateClass = new ModerateClass(seed, seed % 2 == 1, "seed_" + seed)
+            {
+                _fieldPublic = seed,
+                _fieldPublic2 = seed + 1
+            };
 
-            moderateClass.FieldPublic = seed;
-            moderateClass.FieldPublic2 = seed + 1;
+            moderateClass._structField = new Struct(seed, moderateClass, SimpleClass.CreateForTests(seed));
+            moderateClass._deeperStructField = new DeeperStruct(seed, SimpleClass.CreateForTests(seed));
 
-            moderateClass.StructField = new Struct(seed, moderateClass, SimpleClass.CreateForTests(seed));
-            moderateClass.DeeperStructField = new DeeperStruct(seed, SimpleClass.CreateForTests(seed));
-
-            moderateClass.GenericClassField = new GenericClass<SimpleClass>(moderateClass, SimpleClass.CreateForTests(seed));
+            moderateClass._genericClassField = new GenericClass<SimpleClass>(moderateClass, SimpleClass.CreateForTests(seed));
 
             var seedSimple = seed + 1000;
 
             moderateClass.SimpleClassProperty = new SimpleClass(seedSimple, seed % 2 == 1, "seed_" + seedSimple);
 
-            moderateClass.ReadonlySimpleClassField = new SimpleClass(seedSimple + 1, seed % 2 == 1, "seed_" + (seedSimple + 1));
+            moderateClass._readonlySimpleClassField = new SimpleClass(seedSimple + 1, seed % 2 == 1, "seed_" + (seedSimple + 1));
 
             moderateClass.SimpleClassArray = new SimpleClass[10];
 
-            for (int i = 1; i <= 10; i++)
+            for (var i = 1; i <= 10; i++)
             {
                 moderateClass.SimpleClassArray[i - 1] = new SimpleClass(seedSimple + i, seed % 2 == 1, "seed_" + (seedSimple + i));
             }
@@ -72,7 +133,7 @@ namespace AI4E.Utils.ObjectClone.Test.TestTypes
 
         public string GetPrivateField2()
         {
-            return FieldPrivate;
+            return _fieldPrivate;
         }
     }
 }

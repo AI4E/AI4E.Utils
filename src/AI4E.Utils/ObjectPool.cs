@@ -260,7 +260,7 @@ namespace AI4E.Utils
             }
         }
 
-        private static Lazy<Type> _stackTraceType = new Lazy<Type>(() => Type.GetType("System.Diagnostics.StackTrace"));
+        private static readonly Lazy<Type> _stackTraceType = new Lazy<Type>(() => Type.GetType("System.Diagnostics.StackTrace"));
 
         private static object CaptureStackTrace()
         {

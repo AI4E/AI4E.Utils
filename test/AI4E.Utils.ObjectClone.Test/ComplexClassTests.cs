@@ -1,4 +1,62 @@
-﻿using System;
+/* License
+ * --------------------------------------------------------------------------------------------------------------------
+ * This file is part of the AI4E distribution.
+ *   (https://github.com/AI4E/AI4E.Utils)
+ * 
+ * MIT License
+ * 
+ * Copyright (c) 2018-2019 Andreas Truetschel and contributors.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * --------------------------------------------------------------------------------------------------------------------
+ */
+
+/* Based on
+* --------------------------------------------------------------------------------------------------------------------
+* Fast Deep Copy by Expression Trees 
+* https://www.codeproject.com/articles/1111658/fast-deep-copy-by-expression-trees-c-sharp
+* 
+* MIT License
+* 
+* Copyright (c) 2014 - 2016 Frantisek Konopecky
+* 
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+* 
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+* 
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+* --------------------------------------------------------------------------------------------------------------------
+*/
+
+using System;
 using System.Linq;
 using AI4E.Utils.ObjectClone.Test.TestTypes;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -12,19 +70,19 @@ namespace AI4E.Utils.ObjectClone.Test
         public void Test1()
         {
             var c = ComplexClass.CreateForTests();
-            var cCopy = (ComplexClass)CopyFunctionSelection.CopyMethod(c);
+            var cCopy = (ComplexClass)CopyFunctionSelection._copyMethod(c);
 
             // test that the copy is a different instance but with equal content
             Assert_AreEqualButNotSame(c, cCopy);
 
             // test that the same subobjects should remain the same in a copy (we put same objects to different dictionaries)
-            Assert.AreSame(cCopy.SampleDictionary[typeof(ComplexClass).ToString()],
+            Assert.AreSame(cCopy._sampleDictionary[typeof(ComplexClass).ToString()],
                                                  cCopy.ISampleDictionary[typeof(ComplexClass).ToString()]);
-            Assert.AreSame(cCopy.SampleDictionary[typeof(ModerateClass).ToString()],
+            Assert.AreSame(cCopy._sampleDictionary[typeof(ModerateClass).ToString()],
                                                  cCopy.ISampleDictionary[typeof(ModerateClass).ToString()]);
-            Assert.AreNotSame(cCopy.SampleDictionary[typeof(SimpleClass).ToString()],
+            Assert.AreNotSame(cCopy._sampleDictionary[typeof(SimpleClass).ToString()],
                                                  cCopy.ISampleDictionary[typeof(SimpleClass).ToString()]);
-            Assert.AreSame(cCopy.ISimpleMultiDimArray[0, 0, 0], cCopy.SimpleMultiDimArray[1][1][1]);
+            Assert.AreSame(cCopy._iSimpleMultiDimArray[0, 0, 0], cCopy._simpleMultiDimArray[1][1][1]);
         }
         
         public static void Assert_AreEqualButNotSame(ComplexClass c, ComplexClass cCopy)
@@ -44,17 +102,17 @@ namespace AI4E.Utils.ObjectClone.Test
             Assert.AreSame(cCopy, cCopy.TupleOfThis.Item3);
 
             // original had nonnull delegates and events but copy has it null (for ExpressionTree copy method)
-            Assert.IsTrue(c.JustDelegate != null);
-            Assert.IsTrue(cCopy.JustDelegate == null); 
-            Assert.IsTrue(c.ReadonlyDelegate != null);
-            Assert.IsTrue(cCopy.ReadonlyDelegate == null);
+            Assert.IsTrue(c._justDelegate != null);
+            Assert.IsTrue(cCopy._justDelegate == null); 
+            Assert.IsTrue(c._readonlyDelegate != null);
+            Assert.IsTrue(cCopy._readonlyDelegate == null);
             Assert.IsTrue(!c.IsJustEventNull);
             Assert.IsTrue(cCopy.IsJustEventNull);
 
             // test of regular dictionary
-            Assert.AreEqual(c.SampleDictionary.Count, cCopy.SampleDictionary.Count);
+            Assert.AreEqual(c._sampleDictionary.Count, cCopy._sampleDictionary.Count);
             
-            foreach (var pair in c.SampleDictionary.Zip(cCopy.SampleDictionary, (item, itemCopy) => new { item, itemCopy }))
+            foreach (var pair in c._sampleDictionary.Zip(cCopy._sampleDictionary, (item, itemCopy) => new { item, itemCopy }))
             {
                 Assert.AreEqual(pair.item.Key, pair.itemCopy.Key);
 
@@ -72,36 +130,36 @@ namespace AI4E.Utils.ObjectClone.Test
             }
 
             // test of [,,] interface array
-            if (c.ISimpleMultiDimArray != null)
+            if (c._iSimpleMultiDimArray != null)
             {
-                Assert.AreEqual(c.ISimpleMultiDimArray.Rank, cCopy.ISimpleMultiDimArray.Rank);
+                Assert.AreEqual(c._iSimpleMultiDimArray.Rank, cCopy._iSimpleMultiDimArray.Rank);
 
-                for (int i = 0; i < c.ISimpleMultiDimArray.Rank; i++)
+                for (var i = 0; i < c._iSimpleMultiDimArray.Rank; i++)
                 {
-                    Assert.AreEqual(c.ISimpleMultiDimArray.GetLength(i), cCopy.ISimpleMultiDimArray.GetLength(i));
+                    Assert.AreEqual(c._iSimpleMultiDimArray.GetLength(i), cCopy._iSimpleMultiDimArray.GetLength(i));
                 }
 
-                foreach (var pair in c.ISimpleMultiDimArray.Cast<ISimpleClass>().Zip(cCopy.ISimpleMultiDimArray.Cast<ISimpleClass>(), (item, itemCopy) => new { item, itemCopy }))
+                foreach (var pair in c._iSimpleMultiDimArray.Cast<ISimpleClass>().Zip(cCopy._iSimpleMultiDimArray.Cast<ISimpleClass>(), (item, itemCopy) => new { item, itemCopy }))
                 {
                     Assert_AreEqualButNotSame_ChooseForType(pair.item, pair.itemCopy);
                 }
             }
 
             // test of array of arrays of arrays (SimpleClass[][][])
-            if (c.SimpleMultiDimArray != null)
+            if (c._simpleMultiDimArray != null)
             {
-                Assert.AreEqual(c.SimpleMultiDimArray.Length, cCopy.SimpleMultiDimArray.Length);
+                Assert.AreEqual(c._simpleMultiDimArray.Length, cCopy._simpleMultiDimArray.Length);
 
-                for (int i = 0; i < c.SimpleMultiDimArray.Length; i++)
+                for (var i = 0; i < c._simpleMultiDimArray.Length; i++)
                 {
-                    var subArray = c.SimpleMultiDimArray[i];
-                    var subArrayCopy = cCopy.SimpleMultiDimArray[i];
+                    var subArray = c._simpleMultiDimArray[i];
+                    var subArrayCopy = cCopy._simpleMultiDimArray[i];
 
                     if (subArray != null)
                     {
                         Assert.AreEqual(subArray.Length, subArrayCopy.Length);
 
-                        for (int j = 0; j < subArray.Length; j++)
+                        for (var j = 0; j < subArray.Length; j++)
                         {
                             var subSubArray = subArray[j];
                             var subSubArrayCopy = subArrayCopy[j];
@@ -110,7 +168,7 @@ namespace AI4E.Utils.ObjectClone.Test
                             {
                                 Assert.AreEqual(subSubArray.Length, subSubArrayCopy.Length);
 
-                                for (int k = 0; k < subSubArray.Length; k++)
+                                for (var k = 0; k < subSubArray.Length; k++)
                                 {
                                     var item = subSubArray[k];
                                     var itemCopy = subSubArrayCopy[k];

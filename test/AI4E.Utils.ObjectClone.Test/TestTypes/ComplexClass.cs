@@ -1,4 +1,62 @@
-﻿using System;
+/* License
+ * --------------------------------------------------------------------------------------------------------------------
+ * This file is part of the AI4E distribution.
+ *   (https://github.com/AI4E/AI4E.Utils)
+ * 
+ * MIT License
+ * 
+ * Copyright (c) 2018-2019 Andreas Truetschel and contributors.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * --------------------------------------------------------------------------------------------------------------------
+ */
+
+/* Based on
+* --------------------------------------------------------------------------------------------------------------------
+* Fast Deep Copy by Expression Trees 
+* https://www.codeproject.com/articles/1111658/fast-deep-copy-by-expression-trees-c-sharp
+* 
+* MIT License
+* 
+* Copyright (c) 2014 - 2016 Frantisek Konopecky
+* 
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+* 
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+* 
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+* --------------------------------------------------------------------------------------------------------------------
+*/
+
+using System;
 using System.Collections.Generic;
 
 namespace AI4E.Utils.ObjectClone.Test.TestTypes
@@ -10,21 +68,21 @@ namespace AI4E.Utils.ObjectClone.Test.TestTypes
 
         public Tuple<ComplexClass, ModerateClass, SimpleClass> TupleOfThis { get; protected set; }
 
-        public Dictionary<string, SimpleClass> SampleDictionary;
+        public Dictionary<string, SimpleClass> _sampleDictionary;
 
         public DerivedDictionary<string, ISimpleClass> ISampleDictionary { get; private set; }
 
-        public ISimpleClass[,,] ISimpleMultiDimArray;
+        public ISimpleClass[,,] _iSimpleMultiDimArray;
 
-        public SimpleClass[][][] SimpleMultiDimArray;
+        public SimpleClass[][][] _simpleMultiDimArray;
 
-        public Struct[] StructArray;
+        public Struct[] _structArray;
 
         public delegate void DelegateType();
 
-        public Delegate JustDelegate;
+        public Delegate _justDelegate;
 
-        public readonly Delegate ReadonlyDelegate;
+        public readonly Delegate _readonlyDelegate;
 
         public event DelegateType JustEvent;
 
@@ -37,11 +95,11 @@ namespace AI4E.Utils.ObjectClone.Test.TestTypes
 
             TupleOfThis = new Tuple<ComplexClass, ModerateClass, SimpleClass>(this, this, this);
 
-            SampleDictionary = new DerivedDictionary<string, SimpleClass>();
+            _sampleDictionary = new DerivedDictionary<string, SimpleClass>();
             ISampleDictionary = new DerivedDictionary<string, ISimpleClass>();
 
-            JustDelegate = new DelegateType(() => CreateForTests());
-            ReadonlyDelegate = new DelegateType(() => CreateForTests());
+            _justDelegate = new DelegateType(() => CreateForTests());
+            _readonlyDelegate = new DelegateType(() => CreateForTests());
             JustEvent += new DelegateType(() => CreateForTests());
         }
 
@@ -50,7 +108,7 @@ namespace AI4E.Utils.ObjectClone.Test.TestTypes
             var complexClass = new ComplexClass();
 
             var dict1 = new DerivedDictionary<string, SimpleClass>();
-            complexClass.SampleDictionary = dict1;
+            complexClass._sampleDictionary = dict1;
 
             dict1[typeof(ComplexClass).ToString()] = new ComplexClass();
             dict1[typeof(ModerateClass).ToString()] = new ModerateClass(1, true, "madeInComplexClass");
@@ -65,17 +123,17 @@ namespace AI4E.Utils.ObjectClone.Test.TestTypes
             var array1 = new ISimpleClass[2, 1, 1];
             array1[0,0,0] = new SimpleClass(4, false, "madeForMultiDimArray");
             array1[1,0,0] = new ComplexClass();
-            complexClass.ISimpleMultiDimArray = array1;
+            complexClass._iSimpleMultiDimArray = array1;
 
             var array2 = new SimpleClass[2][][];
             array2[1] = new SimpleClass[2][];
             array2[1][1] = new SimpleClass[2];
             array2[1][1][1] = (SimpleClass)array1[0, 0, 0];
-            complexClass.SimpleMultiDimArray = array2;
+            complexClass._simpleMultiDimArray = array2;
             
-            complexClass.StructArray = new Struct[2];
-            complexClass.StructArray[0] = new Struct(1, complexClass, SimpleClass.CreateForTests(5));
-            complexClass.StructArray[1] = new Struct(3, new SimpleClass(3,false,"inStruct"), SimpleClass.CreateForTests(6));
+            complexClass._structArray = new Struct[2];
+            complexClass._structArray[0] = new Struct(1, complexClass, SimpleClass.CreateForTests(5));
+            complexClass._structArray[1] = new Struct(3, new SimpleClass(3,false,"inStruct"), SimpleClass.CreateForTests(6));
 
             return complexClass;
         }

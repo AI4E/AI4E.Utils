@@ -9,6 +9,7 @@
     <RepositoryUrl>https://github.com/AI4E/AI4E.Utils</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Version>0.1.0</Version>
   </PropertyGroup>
 
@@ -17,6 +18,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <LangVersion>latest</LangVersion>
     <SolutionDir>$(RepositoryRoot)</SolutionDir>
+    <NoWarn>NU5125</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>

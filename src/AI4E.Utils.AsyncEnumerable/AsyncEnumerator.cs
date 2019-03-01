@@ -132,7 +132,7 @@ namespace AI4E.Utils.AsyncEnumerable
 
     public class AsyncEnumeratorMethodBuilder<T>
     {
-        private AsyncTaskMethodBuilder _methodBuilder;
+        private readonly AsyncTaskMethodBuilder _methodBuilder;
 
         public static AsyncEnumeratorMethodBuilder<T> Create() => new AsyncEnumeratorMethodBuilder<T>(new AsyncEnumerator<T>());
 

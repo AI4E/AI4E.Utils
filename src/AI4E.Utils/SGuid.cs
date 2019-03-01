@@ -52,8 +52,6 @@ namespace AI4E.Utils
         public static SGuid Empty { get; } = new SGuid();
 
         private static readonly string _emptyValue = Encode(Guid.Empty);
-
-        private readonly Guid _guid;
         private readonly string _value;
 
         #endregion
@@ -67,7 +65,7 @@ namespace AI4E.Utils
         public SGuid(string value)
         {
             _value = value;
-            _guid = Decode(value);
+            Guid = Decode(value);
         }
 
         /// <summary>
@@ -77,7 +75,7 @@ namespace AI4E.Utils
         public SGuid(Guid guid)
         {
             _value = Encode(guid);
-            _guid = guid;
+            Guid = guid;
         }
 
         #endregion
@@ -87,12 +85,12 @@ namespace AI4E.Utils
         /// <summary>
         /// Gets the underlying Guid.
         /// </summary>
-        public Guid Guid => _guid;
+        public Guid Guid { get; }
 
         /// <summary>
         /// Gets the underlying base64 encoded string
         /// </summary>
-        public string Value => _guid == Guid.Empty ? _emptyValue : _value;
+        public string Value => Guid == Guid.Empty ? _emptyValue : _value;
 
         #endregion
 
@@ -124,7 +122,7 @@ namespace AI4E.Utils
 
         public bool Equals(SGuid other)
         {
-            return other._guid == _guid;
+            return other.Guid == Guid;
         }
 
         #endregion
@@ -137,7 +135,7 @@ namespace AI4E.Utils
         /// <returns></returns>
         public override int GetHashCode()
         {
-            return _guid.GetHashCode();
+            return Guid.GetHashCode();
         }
 
         #endregion
@@ -241,7 +239,7 @@ namespace AI4E.Utils
         /// <returns></returns>
         public static implicit operator Guid(SGuid shortGuid)
         {
-            return shortGuid._guid;
+            return shortGuid.Guid;
         }
 
         /// <summary>
