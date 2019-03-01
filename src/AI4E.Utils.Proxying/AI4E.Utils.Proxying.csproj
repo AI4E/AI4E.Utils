@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(NetStandardVersion)</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageTags>.Net Core Proxy RPC Async</PackageTags>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <Description>Implements async remote procedure calls (RPCs).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AI4E.Utils\AI4E.Utils.csproj" />
+  </ItemGroup>
+
+</Project>

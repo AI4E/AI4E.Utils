@@ -10,7 +10,7 @@
     <RepositoryType>git</RepositoryType>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Version>0.1.0</Version>
+    <Version>0.1.0-pre$([System.DateTime]::Now.ToString(yyMMdd))</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -18,13 +18,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <LangVersion>latest</LangVersion>
     <SolutionDir>$(RepositoryRoot)</SolutionDir>
-    <NoWarn>NU5125</NoWarn>
+    <NoWarn>NU5125;NU5105</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
     <RepositoryRootPath>$(RepositoryRoot)\</RepositoryRootPath>
     <RootOutputPath>$(RepositoryRootPath)artifacts\bin\</RootOutputPath>
     <RootIntermediateOutputPath>$(RepositoryRootPath)artifacts\obj\</RootIntermediateOutputPath>
+    <PackageOutputPath>$(RepositoryRootPath)artifacts\nupkg\</PackageOutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(RootOutputPath)' != ''">
