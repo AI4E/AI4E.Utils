@@ -1,5 +1,16 @@
 <Project>
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" Condition="exists($([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../')))" />
+
+  <PropertyGroup>
+    <Authors>Andreas Trütschel and contributors</Authors>
+    <Product>$(ProjectName)</Product>
+    <Copyright>Copyright (c) Andreas Trütschel and contributors.</Copyright>
+    <PackageLicenseUrl>https://github.com/AI4E/AI4E.Utils/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/AI4E/AI4E.Utils</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/AI4E/AI4E.Utils</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
 
   <PropertyGroup>
     <RepositoryRoot Condition="'$(RepositoryRoot)' == ''">$(MSBuildThisFileDirectory)</RepositoryRoot>
@@ -27,15 +38,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <SystemBuffersVersion Condition="'$(SystemBuffersVersion)' == ''">4.5.0</SystemBuffersVersion>
-    <SystemCollectionsImmutableVersion Condition="'$(SystemCollectionsImmutableVersion)' == ''">1.5.0</SystemCollectionsImmutableVersion>
-    <SystemInteractiveAsyncVersion Condition="'$(SystemInteractiveAsyncVersion)' == ''">3.2.0</SystemInteractiveAsyncVersion>
-    <SystemMemoryVersion Condition="'$(SystemMemoryVersion)' == ''">4.5.2</SystemMemoryVersion>
-    <SystemNumericsVectorsVersion Condition="'$(SystemNumericsVectorsVersion)' == ''">4.5.0</SystemNumericsVectorsVersion>
-    <SystemRuntimeCompilerServicesUnsafeVersion Condition="'$(SystemRuntimeCompilerServicesUnsafeVersion)' == ''">4.5.2</SystemRuntimeCompilerServicesUnsafeVersion>
-    <SystemThreadingTasksExtensionsVersion Condition="'$(SystemThreadingTasksExtensionsVersion)' == ''">4.5.2</SystemThreadingTasksExtensionsVersion>
-    <MicrosoftExtensionsDependencyInjectionAbstractionsVersion Condition="'$(MicrosoftExtensionsDependencyInjectionAbstractionsVersion)' == ''">2.2.0</MicrosoftExtensionsDependencyInjectionAbstractionsVersion>
-    <MicrosoftExtensionsLoggingAbstractionsVersion Condition="'$(MicrosoftExtensionsLoggingAbstractionsVersion)' == ''">2.2.0</MicrosoftExtensionsLoggingAbstractionsVersion>
-    <NitoAsyncExCoordinationVersion Condition="'$(NitoAsyncExCoordinationVersion)' == ''">1.0.2</NitoAsyncExCoordinationVersion>
+    <NetStandardVersion>netstandard2.0</NetStandardVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 </Project>
