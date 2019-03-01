@@ -1,7 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(NetStandardVersion)</TargetFramework>
+    <TargetFrameworks>$(NetStandardVersion)</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageTags>.Net Core Extensions Utils Utilities Span&lt;T&gt; Memory&lt;T&gt;</PackageTags>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <Description>Provides utilities and extension methods for work with Span&lt;T&gt; and Memory&lt;T&gt; based code.</Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -4,6 +4,12 @@
     <TargetFramework>$(NetStandardVersion)</TargetFramework>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageTags>.Net Core Extensions Utils Utilities AsyncEnumerable</PackageTags>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <Description>Provides utilities and extension methods for work with the AsyncEnumerable type.</Description>
+  </PropertyGroup>
+  
   <ItemGroup>
     <PackageReference Include="System.Interactive.Async" Version="3.2.0" />
   </ItemGroup>
