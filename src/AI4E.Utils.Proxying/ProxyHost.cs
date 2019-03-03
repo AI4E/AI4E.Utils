@@ -121,7 +121,7 @@ namespace AI4E.Utils.Proxying
                     stream.Position = 0;
                     stream.SetLength(0);
 
-                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false))
+                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
                     {
                         writer.Write((byte)MessageType.Activation);
                         writer.Write(seqNum);
@@ -130,25 +130,27 @@ namespace AI4E.Utils.Proxying
                 }
                 while (!TryGetResultTask(seqNum, out result));
 
+                stream.Position = 0;
                 await SendAsync(stream, cancellation);
             }
             return await result;
         }
 
-        internal Task Deactivate(int proxyId, CancellationToken cancellation)
+        internal async Task Deactivate(int proxyId, CancellationToken cancellation)
         {
             var seqNum = Interlocked.Increment(ref _nextSeqNum);
 
             using (var stream = new MemoryStream())
             {
-                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false))
+                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
                 {
                     writer.Write((byte)MessageType.Deactivation);
                     writer.Write(seqNum);
                     writer.Write(proxyId);
                 }
 
-                return SendAsync(stream, cancellation);
+                stream.Position = 0;
+                await SendAsync(stream, cancellation);
             }
         }
 
@@ -237,7 +239,7 @@ namespace AI4E.Utils.Proxying
                     try
                     {
                         await _stream.ReadExactAsync(messageLengthBytes, offset: 0, count: messageLengthBytes.Length, cancellation);
-                        var messageLength = BinaryPrimitives.ReadInt32BigEndian(messageLengthBytes.AsSpan());
+                        var messageLength = BinaryPrimitives.ReadInt32LittleEndian(messageLengthBytes.AsSpan());
 
                         var buffer = ArrayPool<byte>.Shared.Rent(messageLength);
                         try
@@ -432,6 +434,7 @@ namespace AI4E.Utils.Proxying
                 BinaryPrimitives.WriteInt32LittleEndian(_sendMessageLengthBuffer.AsSpan(), messageLength);
 
                 await _stream.WriteAsync(_sendMessageLengthBuffer, offset: 0, count: _sendMessageLengthBuffer.Length);
+
                 await stream.CopyToAsync(_stream, bufferSize: 81920, cancellation);
             }
         }
@@ -456,7 +459,7 @@ namespace AI4E.Utils.Proxying
 
             using (var stream = new MemoryStream())
             {
-                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false))
+                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
                 {
                     writer.Write(exception == null ? (byte)MessageType.ReturnValue : (byte)MessageType.ReturnException);
                     writer.Write(seqNum);
@@ -464,6 +467,7 @@ namespace AI4E.Utils.Proxying
                     Serialize(writer, exception ?? result);
                 }
 
+                stream.Position = 0;
                 await SendAsync(stream, cancellation);
             }
         }
@@ -485,7 +489,7 @@ namespace AI4E.Utils.Proxying
                     stream.Position = 0;
                     stream.SetLength(0);
 
-                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false))
+                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
                     {
                         writer.Write((byte)MessageType.MethodCall);
                         writer.Write(seqNum);
@@ -515,6 +519,7 @@ namespace AI4E.Utils.Proxying
                 }
                 while (!TryGetResultTask(seqNum, out task));
 
+                stream.Position = 0;
                 await SendAsync(stream, cancellation: default);
             }
 
