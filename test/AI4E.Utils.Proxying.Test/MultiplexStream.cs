@@ -94,5 +94,13 @@ namespace AI4E.Utils.Proxying.Test
         {
             return _tx.WriteAsync(buffer, offset, count, cancellationToken);
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            _tx.Dispose();
+            _rx.Dispose();
+
+            base.Dispose(disposing);
+        }
     }
 }

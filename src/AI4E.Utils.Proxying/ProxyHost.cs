@@ -65,6 +65,8 @@ namespace AI4E.Utils.Proxying
         private readonly Dictionary<object, IProxyInternal> _proxyLookup = new Dictionary<object, IProxyInternal>();
         private readonly Dictionary<int, IProxyInternal> _proxies = new Dictionary<int, IProxyInternal>();
         private readonly object _proxyLock = new object();
+        private readonly Dictionary<int, IProxyInternal> _remoteProxies = new Dictionary<int, IProxyInternal>();
+        private readonly object _remoteProxiesMutex = new object();
         private readonly AsyncDisposeHelper _disposeHelper;
 
         private int _nextSeqNum = 0;
@@ -149,25 +151,30 @@ namespace AI4E.Utils.Proxying
                 stream.Position = 0;
                 await SendAsync(stream, cancellation);
             }
+
             return await result;
         }
 
         internal async Task Deactivate(int proxyId, CancellationToken cancellation)
         {
-            var seqNum = Interlocked.Increment(ref _nextSeqNum);
-
-            using (var stream = new MemoryStream())
+            try
             {
-                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
-                {
-                    writer.Write((byte)MessageType.Deactivation);
-                    writer.Write(seqNum);
-                    writer.Write(proxyId);
-                }
+                var seqNum = Interlocked.Increment(ref _nextSeqNum);
 
-                stream.Position = 0;
-                await SendAsync(stream, cancellation);
+                using (var stream = new MemoryStream())
+                {
+                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
+                    {
+                        writer.Write((byte)MessageType.Deactivation);
+                        writer.Write(seqNum);
+                        writer.Write(proxyId);
+                    }
+
+                    stream.Position = 0;
+                    await SendAsync(stream, cancellation);
+                }
             }
+            catch (ObjectDisposedException) { }
         }
 
         private enum ActivationMode : byte
@@ -199,14 +206,29 @@ namespace AI4E.Utils.Proxying
         {
             await _receiveProcess.TerminateAsync().HandleExceptionsAsync();
 
-            IEnumerable<IProxyInternal> proxies;
+            List<IProxyInternal> proxies;
 
             lock (_proxyLock)
             {
                 proxies = _proxies.Values.ToList();
             }
 
+            lock (_remoteProxiesMutex)
+            {
+                proxies.AddRange(_remoteProxies.Values);
+            }
+
+            var objectDisposedException = new ObjectDisposedException(GetType().FullName);
+
+            // TODO: Parallelize this.
+            foreach (var callback in _responseTable.Values.Select(p => p.callback))
+            {
+                callback.Invoke(MessageType.ReturnException, objectDisposedException);
+            }
+
             await Task.WhenAll(proxies.Select(p => p.DisposeAsync())).HandleExceptionsAsync();
+
+            _stream.Dispose();
         }
 
         #endregion
@@ -831,9 +853,17 @@ namespace AI4E.Utils.Proxying
                 var messageLength = checked((int)stream.Length);
                 BinaryPrimitives.WriteInt32LittleEndian(_sendMessageLengthBuffer.AsSpan(), messageLength);
 
-                await _stream.WriteAsync(_sendMessageLengthBuffer, offset: 0, count: _sendMessageLengthBuffer.Length);
+                try
+                {
+                    await _stream.WriteAsync(_sendMessageLengthBuffer, offset: 0, count: _sendMessageLengthBuffer.Length);
 
-                await stream.CopyToAsync(_stream, bufferSize: 81920, cancellation);
+                    await stream.CopyToAsync(_stream, bufferSize: 81920, cancellation);
+                }
+                catch (ObjectDisposedException)
+                {
+                    Dispose();
+                    throw;
+                }
             }
         }
 
@@ -974,10 +1004,22 @@ namespace AI4E.Utils.Proxying
                 }
             }
 
-            if (!_responseTable.TryAdd(seqNum, (Callback, typeof(TResult))))
+            try
             {
-                task = default;
-                return false;
+                using (_disposeHelper.GuardDisposal())
+                {
+
+                    if (!_responseTable.TryAdd(seqNum, (Callback, typeof(TResult))))
+                    {
+                        task = default;
+                        return false;
+                    }
+
+                }
+            }
+            catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
             }
 
             task = taskCompletionSource.Task;
@@ -1312,13 +1354,38 @@ namespace AI4E.Utils.Proxying
 
             if (proxyOwner == ProxyOwner.Remote)
             {
-                var type = typeof(Proxy<>).MakeGenericType(proxyType);
-                var proxy = (IProxyInternal)Activator.CreateInstance(type, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public, null, new object[]
+                IProxyInternal proxy;
+
+                lock (_remoteProxiesMutex)
                 {
+                    if (!_remoteProxies.TryGetValue(proxyId, out proxy))
+                    {
+                        proxy = null;
+                    }
+                }
+
+                if (proxy == null)
+                {
+                    var type = typeof(Proxy<>).MakeGenericType(proxyType);
+                    proxy = (IProxyInternal)Activator.CreateInstance(type, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public, null, new object[]
+                    {
                             this,
                             proxyId,
                             actualType
-                }, null);
+                    }, null);
+                }
+
+                lock (_remoteProxiesMutex)
+                {
+                    if (_remoteProxies.TryGetValue(proxy.Id, out var p))
+                    {
+                        proxy = p;
+                    }
+                    else
+                    {
+                        _remoteProxies.Add(proxy.Id, proxy);
+                    }
+                }
 
                 if (expectedType == null || expectedType.GetInterfaces().Contains(typeof(IProxy)))
                 {
