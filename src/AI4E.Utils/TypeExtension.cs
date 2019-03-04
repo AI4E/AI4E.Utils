@@ -253,5 +253,10 @@ namespace AI4E.Utils
 
             return $"{baseName}<{string.Join(", ", argumentNames)}>";
         }
+
+        public static bool CanContainNull(this Type type)
+        {
+            return !type.IsValueType || type.IsGenericTypeDefinition && type.GetGenericTypeDefinition() == typeof(Nullable<>);
+        }
     }
 }

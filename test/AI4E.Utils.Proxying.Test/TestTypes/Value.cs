@@ -30,7 +30,12 @@ using System;
 
 namespace AI4E.Utils.Proxying.Test.TestTypes
 {
-    public sealed class Value : IDisposable
+    public interface IValue
+    {
+        int GetValue();
+    }
+
+    public sealed class Value : IDisposable, IValue
     {
         private readonly int _value;
 

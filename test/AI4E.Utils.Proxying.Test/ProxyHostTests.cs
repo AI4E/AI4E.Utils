@@ -37,10 +37,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace AI4E.Utils.Proxying.Test
 {
     [TestClass]
-    public class ProxyHostTest
+    public class ProxyHostTests
     {
         [TestMethod]
-        public async Task BasicCallTest()
+        public async Task SyncCallWithResultTest()
         {
             using (var fs1 = new FloatingStream())
             using (var fs2 = new FloatingStream())
@@ -56,6 +56,157 @@ namespace AI4E.Utils.Proxying.Test
                 Assert.IsNull(fooProxy.LocalInstance);
                 Assert.AreEqual(8, result);
             }
+        }
+
+        [TestMethod]
+        public async Task AsyncCallWithResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
+                var result = await fooProxy.ExecuteAsync(foo => foo.AddAsync(5, 3));
+
+                Assert.IsNull(fooProxy.LocalInstance);
+                Assert.AreEqual(8, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task SyncCallWithoutResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
+                await fooProxy.ExecuteAsync(foo => foo.Set(5));
+
+                Assert.IsNull(fooProxy.LocalInstance);
+                Assert.AreEqual(5, ((IFoo)remoteProxyHost.LocalProxies.First().LocalInstance).Get());
+            }
+        }
+
+        [TestMethod]
+        public async Task AsyncCallWithoutResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
+                await fooProxy.ExecuteAsync(foo => foo.SetAsync(5));
+
+                Assert.IsNull(fooProxy.LocalInstance);
+                Assert.AreEqual(5, ((IFoo)remoteProxyHost.LocalProxies.First().LocalInstance).Get());
+            }
+        }
+
+        [TestMethod]
+        public async Task TransparentProxySyncCallWithResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var foo = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>().AsTransparentProxy();
+                var result = foo.Add(5, 3);
+
+                Assert.AreEqual(8, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task TransparentProxyAsyncCallWithResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var foo = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>().AsTransparentProxy();
+                var result = await foo.AddAsync(5, 3);
+
+                Assert.AreEqual(8, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task TransparentProxySyncCallWithoutResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var foo = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>().AsTransparentProxy();
+                foo.Set(5);
+
+                await Task.Delay(50);
+
+                Assert.AreEqual(5, ((IFoo)remoteProxyHost.LocalProxies.First().LocalInstance).Get());
+            }
+        }
+
+        [TestMethod]
+        public async Task TransparentProxyAsyncCallWithoutResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var foo = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>().AsTransparentProxy();
+                await foo.SetAsync(5);
+
+                Assert.AreEqual(5, ((IFoo)remoteProxyHost.LocalProxies.First().LocalInstance).Get());
+            }
+        }
+
+        [TestMethod]
+        public void LocalProxyAsTransparentProxyTest()
+        {
+            var instance = new Foo();
+            var transparentProxy = ProxyHost.CreateProxy(instance).Cast<IFoo>().AsTransparentProxy();
+
+            Assert.AreSame(instance, transparentProxy);
+        }
+
+        [TestMethod]
+        public void NonINterfaceTransparentProxyTest()
+        {
+            var instance = new Foo();
+
+            Assert.ThrowsException<NotSupportedException>(() =>
+            {
+                ProxyHost.CreateProxy(instance).AsTransparentProxy();
+            });
         }
 
         [TestMethod]
@@ -265,9 +416,8 @@ namespace AI4E.Utils.Proxying.Test
             }
         }
 
-        // TODO: Do we have a better name for this? This test a remote proxy creating another remote proxy and passing this to us.
         [TestMethod]
-        public async Task RecursionTest()
+        public async Task RemoteCreateProxyTest()
         {
             using (var fs1 = new FloatingStream())
             using (var fs2 = new FloatingStream())
@@ -320,9 +470,8 @@ namespace AI4E.Utils.Proxying.Test
             }
         }
 
-        // TODO: Do we have a better name? We test, whether a local proxy correctly materialize on the remote side, when we pass it as argument.
         [TestMethod]
-        public async Task LocalProxyToRemoteTest()
+        public async Task LocalToRemoteReverseProxyTest()
         {
             using (var fs1 = new FloatingStream())
             using (var fs2 = new FloatingStream())
@@ -380,7 +529,251 @@ namespace AI4E.Utils.Proxying.Test
             }
         }
 
-        // TODO: Add test for various primitive types, casts, and Serialization of complex objects.
+        [TestMethod]
+        public void DowncastLocalProxyTest()
+        {
+            var instance = new Foo();
+            var proxy = ProxyHost.CreateProxy(instance);
+            var castProxy = (ProxyHost.CastProxy<Foo, object>)proxy.Cast<object>();
+
+            Assert.AreSame(proxy, castProxy.Original);
+            Assert.AreEqual(proxy.Id, castProxy.Id);
+            Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
+            Assert.AreSame(proxy.LocalInstance, castProxy.LocalInstance);
+            Assert.AreEqual(typeof(object), castProxy.RemoteType);
+        }
+
+        [TestMethod]
+        public void UpcastLocalProxyTest()
+        {
+            var instance = new Foo();
+            var proxy = ProxyHost.CreateProxy<object>(instance);
+            var castProxy = (ProxyHost.CastProxy<object, Foo>)proxy.Cast<Foo>();
+
+            Assert.AreSame(proxy, castProxy.Original);
+            Assert.AreEqual(proxy.Id, castProxy.Id);
+            Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
+            Assert.AreSame(proxy.LocalInstance, castProxy.LocalInstance);
+            Assert.AreEqual(typeof(Foo), castProxy.RemoteType);
+        }
+
+        [TestMethod]
+        public async Task DowncastRemoteProxyTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
+
+                var castProxy = (ProxyHost.CastProxy<Foo, object>)proxy.Cast<object>();
+
+                Assert.AreSame(proxy, castProxy.Original);
+                Assert.AreEqual(proxy.Id, castProxy.Id);
+                Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
+                Assert.IsNull(castProxy.LocalInstance);
+                Assert.AreEqual(typeof(object), castProxy.RemoteType);
+            }
+        }
+
+        [TestMethod]
+        public async Task UpcastRemoteProxyTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider(services =>
+                {
+                    services.AddTransient<IFoo, Foo>();
+                }));
+
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.LoadAsync<IFoo>(cancellation: default);
+
+                var castProxy = (ProxyHost.CastProxy<IFoo, Foo>)proxy.Cast<Foo>();
+
+                Assert.AreSame(proxy, castProxy.Original);
+                Assert.AreEqual(proxy.Id, castProxy.Id);
+                Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
+                Assert.IsNull(castProxy.LocalInstance);
+                Assert.AreEqual(typeof(Foo), castProxy.RemoteType);
+            }
+        }
+
+        [TestMethod]
+        public void InvalidUpcastLocalProxyTest()
+        {
+            var instance = new Foo();
+            var proxy = ProxyHost.CreateProxy<object>(instance);
+
+            Assert.ThrowsException<ArgumentException>(() =>
+            {
+                proxy.Cast<Bar>();
+            });
+        }
+
+        [TestMethod]
+        public void CastProxyAgainTest()
+        {
+            var instance = new Foo();
+            var proxy = ProxyHost.CreateProxy(instance);
+            var castProxy = proxy.Cast<IFoo>();
+            var castAgainProxy = (ProxyHost.CastProxy<Foo, object>)castProxy.Cast<object>();
+
+            Assert.AreSame(proxy, castAgainProxy.Original);
+            Assert.AreEqual(proxy.Id, castAgainProxy.Id);
+            Assert.AreEqual(proxy.ObjectType, castAgainProxy.ObjectType);
+            Assert.AreSame(proxy.LocalInstance, castAgainProxy.LocalInstance);
+            Assert.AreEqual(typeof(object), castAgainProxy.RemoteType);
+        }
+
+        [TestMethod]
+        public async Task CastProxySyncCallWithResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>();
+                var result = await fooProxy.ExecuteAsync(foo => foo.Add(5, 3));
+
+                Assert.IsNull(fooProxy.LocalInstance);
+                Assert.AreEqual(8, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task CastProxyAsyncCallWithResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>();
+                var result = await fooProxy.ExecuteAsync(foo => foo.AddAsync(5, 3));
+
+                Assert.IsNull(fooProxy.LocalInstance);
+                Assert.AreEqual(8, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task CastProxySyncCallWithoutResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>();
+                await fooProxy.ExecuteAsync(foo => foo.Set(5));
+
+                Assert.IsNull(fooProxy.LocalInstance);
+                Assert.AreEqual(5, ((IFoo)remoteProxyHost.LocalProxies.First().LocalInstance).Get());
+            }
+        }
+
+        [TestMethod]
+        public async Task CastProxyAsyncCallWithoutResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = (await localProxyHost.CreateAsync<Foo>(cancellation: default)).Cast<IFoo>();
+                await fooProxy.ExecuteAsync(foo => foo.SetAsync(5));
+
+                Assert.IsNull(fooProxy.LocalInstance);
+                Assert.AreEqual(5, ((IFoo)remoteProxyHost.LocalProxies.First().LocalInstance).Get());
+            }
+        }
+
+        [TestMethod]
+        public async Task RemoteCreateTransparentProxyTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var barProxy = await localProxyHost.CreateAsync<Bar>(cancellation: default);
+                var fooTransparentProxy = await barProxy.ExecuteAsync(bar => bar.GetFooTransparent());
+
+                Assert.IsNotNull(fooTransparentProxy);
+
+                var result = fooTransparentProxy.Add(14, 5);
+
+                Assert.AreEqual(19, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task LocalToRemoteTransparentReverseProxyTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
+                var value = new Value(7);
+
+                var result = await fooProxy.ExecuteAsync(foo => foo.ReadValueAsync((IValue)value));
+
+                Assert.AreEqual(7, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task LocalProxyTransparentProxyRoundtripTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
+                var value = new Value(5);
+                var valueLocalProxy = ProxyHost.CreateProxy<Value>(value, ownsInstance: true);
+
+                var transparentProxy = await fooProxy.ExecuteAsync(foo => foo.GetBackTransparentProxy(valueLocalProxy));
+
+                Assert.AreSame(value, transparentProxy);
+            }
+        }
+
+        // TODO: Add test for various primitive types, casts, properties and Serialization of complex objects.
 
         private IServiceProvider BuildServiceProvider()
         {

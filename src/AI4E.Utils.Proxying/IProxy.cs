@@ -114,5 +114,12 @@ namespace AI4E.Utils.Proxying
         /// When evaluated, the tasks result contains the result of the invokation.
         /// </returns>
         Task<TResult> ExecuteAsync<TResult>(Expression<Func<TRemote, Task<TResult>>> expression);
+
+        /// <summary>
+        /// Returns a transparent proxy for the proxy.
+        /// </summary>
+        /// <returns>The transparent proxy.</returns>
+        /// <exception cref="NotSupportedException">Thrown if <typeparamref name="TRemote"/> is not an interface.</exception>
+        TRemote AsTransparentProxy();
     }
 }

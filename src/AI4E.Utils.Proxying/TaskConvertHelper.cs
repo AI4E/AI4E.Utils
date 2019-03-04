@@ -27,79 +27,28 @@
  */
 
 using System;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
-namespace AI4E.Utils.Proxying.Test.TestTypes
+namespace AI4E.Utils.Proxying
 {
-    public interface IFoo
+    internal static class TaskConvertHelper
     {
-        bool IsDisposed { get; }
+        private static readonly MethodInfo _convertTaskMethodDefinition =
+            typeof(TaskConvertHelper)
+            .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+            .SingleOrDefault(p => p.Name == nameof(ConvertTask) && p.IsGenericMethodDefinition);
 
-        int Add(int a, int b);
-        Task<int> AddAsync(int a, int b);
-        void Dispose();
-        int Get();
-        void Set(int i);
-        Task SetAsync(int i);
-        IProxy<Value> GetBackProxy(IProxy<Value> proxy);
-        Task<int> ReadValueAsync(IProxy<Value> proxy);
-    }
-
-    public sealed class Foo : IDisposable, IFoo
-    {
-        public int Add(int a, int b)
+        internal static Task ConvertTask(Task<object> task, Type resultType)
         {
-            return a + b;
+            return (Task)_convertTaskMethodDefinition.MakeGenericMethod(resultType).Invoke(null, new[] { task });
         }
 
-        public Task<int> AddAsync(int a, int b)
+        private static async Task<T> ConvertTask<T>(Task<object> task)
         {
-            return Task.FromResult(a + b);
+            var obj = await task;
+            return (T)obj;
         }
-
-        private int _i;
-
-        public int Get()
-        {
-            return _i;
-        }
-
-        public void Set(int i)
-        {
-            _i = i;
-        }
-
-        public Task SetAsync(int i)
-        {
-            _i = i;
-            return Task.CompletedTask;
-        }
-
-        public Task<int> ReadValueAsync(IValue transparentProxy)
-        {
-            return Task.FromResult(transparentProxy.GetValue());
-        }
-
-        public Task<int> ReadValueAsync(IProxy<Value> proxy)
-        {
-            return proxy.ExecuteAsync(value => value.GetValue());
-        }
-
-        public IProxy<Value> GetBackProxy(IProxy<Value> proxy)
-        {
-            return proxy;
-        }
-
-        public IValue GetBackTransparentProxy(IProxy<Value> proxy)
-        {
-            return proxy.Cast<IValue>().AsTransparentProxy();
-        }
-
-        public void Dispose()
-        {
-            IsDisposed = true;
-        }
-
-        public bool IsDisposed { get; private set; }
     }
 }

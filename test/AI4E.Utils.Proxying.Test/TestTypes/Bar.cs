@@ -37,6 +37,11 @@ namespace AI4E.Utils.Proxying.Test.TestTypes
             return ProxyHost.CreateProxy(new Foo(), ownsInstance: true);
         }
 
+        public IFoo GetFooTransparent()
+        {
+            return ProxyHost.CreateProxy(new Foo(), ownsInstance: true).Cast<IFoo>().AsTransparentProxy();
+        }
+
         public void Dispose()
         {
             IsDisposed = true;

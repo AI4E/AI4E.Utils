@@ -186,8 +186,37 @@ namespace AI4E.Utils
         {
             if (list == null)
                 return 0;
-           
+
             return list.Aggregate(_sequenceHashCodeSeedValue, (current, item) => (current * _sequenceHashCodePrimeNumber) + (Equals(item, default(TItem)) ? 0 : item.GetHashCode()));
+        }
+
+        public static IEnumerable<TResult> ElementWiseMerge<TFirst, TSecond, TResult>(
+            this IEnumerable<TFirst> enumerable1,
+            IEnumerable<TSecond> enumerable2,
+            Func<TFirst, TSecond, TResult> mergeOperation)
+        {
+            var enumerator1 = enumerable1.GetEnumerator();
+
+            try
+            {
+                var enumerator2 = enumerable2.GetEnumerator();
+
+                try
+                {
+                    while (enumerator1.MoveNext() && enumerator2.MoveNext())
+                    {
+                        yield return mergeOperation(enumerator1.Current, enumerator2.Current);
+                    }
+                }
+                finally
+                {
+                    enumerator2.Dispose();
+                }
+            }
+            finally
+            {
+                enumerator1.Dispose();
+            }
         }
     }
 }
