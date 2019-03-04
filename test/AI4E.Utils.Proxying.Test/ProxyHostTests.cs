@@ -199,7 +199,7 @@ namespace AI4E.Utils.Proxying.Test
         }
 
         [TestMethod]
-        public void NonINterfaceTransparentProxyTest()
+        public void NonInterfaceTransparentProxyTest()
         {
             var instance = new Foo();
 

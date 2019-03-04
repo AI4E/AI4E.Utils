@@ -54,6 +54,11 @@ namespace AI4E.Utils.Proxying
     /// </summary>
     public sealed class ProxyHost : IAsyncDisposable, IProxyHost
     {
+        private static readonly MethodInfo _createProxyMethodDefinition =
+            typeof(ProxyHost)
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+            .SingleOrDefault(p => p.Name == nameof(CreateProxy) && p.IsGenericMethodDefinition && p.GetGenericArguments().Length == 1);
+
         #region Fields
 
         private readonly Stream _stream;
@@ -237,19 +242,29 @@ namespace AI4E.Utils.Proxying
 
         private IProxyInternal RegisterLocalProxy(IProxyInternal proxy)
         {
-            lock (_proxyLock)
+            try
             {
-                if (_proxyLookup.TryGetValue(proxy.LocalInstance, out var existing))
+                using (_disposeHelper.GuardDisposal())
                 {
-                    return existing;
+                    lock (_proxyLock)
+                    {
+                        if (_proxyLookup.TryGetValue(proxy.LocalInstance, out var existing))
+                        {
+                            return existing;
+                        }
+
+                        var id = Interlocked.Increment(ref _nextProxyId);
+
+                        proxy.Register(this, id, () => UnregisterLocalProxy(proxy));
+
+                        _proxyLookup.Add(proxy.LocalInstance, proxy);
+                        _proxies.Add(id, proxy);
+                    }
                 }
-
-                var id = Interlocked.Increment(ref _nextProxyId);
-
-                proxy.Register(this, id, () => UnregisterLocalProxy(proxy));
-
-                _proxyLookup.Add(proxy.LocalInstance, proxy);
-                _proxies.Add(id, proxy);
+            }
+            catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
             }
 
             return proxy;
@@ -303,11 +318,6 @@ namespace AI4E.Utils.Proxying
 
             return new Proxy<TRemote>(instance, ownsInstance);
         }
-
-        private static readonly MethodInfo _createProxyMethodDefinition =
-            typeof(ProxyHost)
-            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
-            .SingleOrDefault(p => p.Name == nameof(CreateProxy) && p.IsGenericMethodDefinition && p.GetGenericArguments().Length == 1);
 
         internal static IProxyInternal CreateProxy(Type remoteType, object instance, bool ownsInstance)
         {
@@ -1375,16 +1385,26 @@ namespace AI4E.Utils.Proxying
                     }, null);
                 }
 
-                lock (_remoteProxiesMutex)
+                try
                 {
-                    if (_remoteProxies.TryGetValue(proxy.Id, out var p))
+                    using (_disposeHelper.GuardDisposal())
                     {
-                        proxy = p;
+                        lock (_remoteProxiesMutex)
+                        {
+                            if (_remoteProxies.TryGetValue(proxy.Id, out var p))
+                            {
+                                proxy = p;
+                            }
+                            else
+                            {
+                                _remoteProxies.Add(proxy.Id, proxy);
+                            }
+                        }
                     }
-                    else
-                    {
-                        _remoteProxies.Add(proxy.Id, proxy);
-                    }
+                }
+                catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
                 }
 
                 if (expectedType == null || expectedType.GetInterfaces().Contains(typeof(IProxy)))
