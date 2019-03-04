@@ -8,11 +8,14 @@ namespace AI4E.Utils.Proxying.Test.TestTypes
         public CancellationToken Cancellation { get; private set; }
         public TaskCompletionSource<object> TaskCompletionSource { get; set; }
 
-        public Task OperateAsync(int someArgument, CancellationToken cancellation)
+        public async Task OperateAsync(int someArgument, CancellationToken cancellation)
         {
             Cancellation = cancellation;
 
-            return TaskCompletionSource?.Task ?? Task.CompletedTask;
+            using (cancellation.Register(() => TaskCompletionSource.TrySetCanceled(cancellation)))
+            {
+                await (TaskCompletionSource?.Task ?? Task.CompletedTask);
+            }
         }
     }
 }

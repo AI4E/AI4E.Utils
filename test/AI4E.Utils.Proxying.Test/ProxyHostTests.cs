@@ -499,7 +499,7 @@ namespace AI4E.Utils.Proxying.Test
             }
         }
 
-        // [TestMethod] // TODO: https://github.com/AI4E/AI4E.Utils/issues/14
+        [TestMethod]
         public async Task CancellationTest()
         {
             using (var fs1 = new FloatingStream())
@@ -521,19 +521,18 @@ namespace AI4E.Utils.Proxying.Test
                 using (var cancellationTokenSource = new CancellationTokenSource())
                 {
                     var task = proxy.ExecuteAsync(t => t.OperateAsync(26, cancellationTokenSource.Token));
-                    await Task.Delay(50); // As we do not have a task to wait for, we have to delay for some time, in good hope that the message arrived at remote in that time.
+                    await Task.Delay(50);
 
                     Assert.IsTrue(cancellationTestType.Cancellation.CanBeCanceled);
                     Assert.IsFalse(cancellationTestType.Cancellation.IsCancellationRequested);
 
                     cancellationTokenSource.Cancel();
-                    await Task.Delay(50); // As we do not have a task to wait for, we have to delay for some time, in good hope that the message arrived at remote in that time.
+
+                    await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => task);
 
                     Assert.IsTrue(cancellationTestType.Cancellation.CanBeCanceled);
                     Assert.IsTrue(cancellationTestType.Cancellation.IsCancellationRequested);
                 }
-
-                tcs.SetResult(null);
             }
         }
 

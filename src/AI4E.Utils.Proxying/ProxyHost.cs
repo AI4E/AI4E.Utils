@@ -72,6 +72,10 @@ namespace AI4E.Utils.Proxying
         private readonly object _proxyLock = new object();
         private readonly Dictionary<int, IProxyInternal> _remoteProxies = new Dictionary<int, IProxyInternal>();
         private readonly object _remoteProxiesMutex = new object();
+        private readonly object _cancellationTokenSourcesMutex = new object();
+        private readonly Dictionary<int, Dictionary<int, CancellationTokenSource>> _cancellationTokenSources
+            = new Dictionary<int, Dictionary<int, CancellationTokenSource>>();
+
         private readonly AsyncDisposeHelper _disposeHelper;
 
         private int _nextSeqNum = 0;
@@ -148,7 +152,7 @@ namespace AI4E.Utils.Proxying
 
                         writer.Write((byte)mode);
                         WriteType(writer, typeof(TRemote));
-                        Serialize(writer, parameter?.Select(p => (p, p?.GetType())));
+                        Serialize(writer, parameter?.Select(p => (p, p?.GetType())), null);
                     }
                 }
                 while (!TryGetResultTask(seqNum, out result));
@@ -744,6 +748,25 @@ namespace AI4E.Utils.Proxying
                     case MessageType.Deactivation:
                         ReceiveDeactivation(reader);
                         break;
+
+                    case MessageType.CancellationRequest:
+                        ReceiveCancellationRequest(reader);
+                        break;
+                }
+            }
+        }
+
+        private void ReceiveCancellationRequest(BinaryReader reader)
+        {
+            var corr = reader.ReadInt32();
+            var cancellationTokenId = reader.ReadInt32();
+
+            lock (_cancellationTokenSourcesMutex)
+            {
+                if (_cancellationTokenSources.TryGetValue(corr, out var cancellationTokenSources) &&
+                   cancellationTokenSources.TryGetValue(cancellationTokenId, out var cancellationTokenSource))
+                {
+                    cancellationTokenSource.Cancel();
                 }
             }
         }
@@ -767,7 +790,7 @@ namespace AI4E.Utils.Proxying
             {
                 var mode = (ActivationMode)reader.ReadByte();
                 var type = ReadType(reader);
-                var parameter = Deserialize(reader, (ParameterInfo[])null).ToArray();
+                var parameter = Deserialize(reader, (ParameterInfo[])null, null).ToArray();
                 var instance = default(object);
                 var ownsInstance = false;
 
@@ -805,38 +828,56 @@ namespace AI4E.Utils.Proxying
             MethodInfo method;
             Type returnType = null;
 
+            var cancellationTokenSources = new Dictionary<int, CancellationTokenSource>();
+
+            lock (_cancellationTokenSourcesMutex)
+            {
+                _cancellationTokenSources[seqNum] = cancellationTokenSources;
+            }
+
             try
             {
-                var proxyId = reader.ReadInt32();
-                waitTask = reader.ReadBoolean();
-                method = DeserializeMethod(reader);
-                var arguments = Deserialize(reader, method.GetParameters()).ToArray();
-
-                if (!TryGetProxyById(proxyId, out var proxy))
+                try
                 {
-                    throw new Exception("Proxy not found."); // TODO
+                    var proxyId = reader.ReadInt32();
+                    waitTask = reader.ReadBoolean();
+                    method = DeserializeMethod(reader);
+
+                    var arguments = Deserialize(reader, method.GetParameters(), cancellationTokenSources).ToArray();
+
+                    if (!TryGetProxyById(proxyId, out var proxy))
+                    {
+                        throw new Exception("Proxy not found."); // TODO
+                    }
+
+                    var instance = proxy.LocalInstance;
+
+                    if (instance == null)
+                    {
+                        throw new Exception("Proxy not found."); // TODO
+                    }
+
+                    result = method.Invoke(instance, arguments);
+                    returnType = method.ReturnType;
+                }
+                catch (TargetInvocationException exc)
+                {
+                    exception = exc.InnerException;
+                }
+                catch (Exception exc)
+                {
+                    exception = exc;
                 }
 
-                var instance = proxy.LocalInstance;
-
-                if (instance == null)
+                await SendResult(seqNum, result, returnType, exception, waitTask, cancellation);
+            }
+            finally
+            {
+                lock (_cancellationTokenSourcesMutex)
                 {
-                    throw new Exception("Proxy not found."); // TODO
+                    _cancellationTokenSources.Remove(seqNum);
                 }
-
-                result = method.Invoke(instance, arguments);
-                returnType = method.ReturnType;
             }
-            catch (TargetInvocationException exc)
-            {
-                exception = exc.InnerException;
-            }
-            catch (Exception exc)
-            {
-                exception = exc;
-            }
-
-            await SendResult(seqNum, result, returnType, exception, waitTask, cancellation);
         }
 
         private void ReceiveResult(MessageType messageType, BinaryReader reader)
@@ -845,7 +886,7 @@ namespace AI4E.Utils.Proxying
 
             if (_responseTable.TryRemove(corr, out var entry))
             {
-                var value = Deserialize(reader, expectedType: entry.resultType);
+                var value = Deserialize(reader, expectedType: entry.resultType, null);
                 entry.callback(messageType, value);
             }
         }
@@ -877,7 +918,13 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        private async Task SendResult(int corrNum, object result, Type resultType, Exception exception, bool waitTask, CancellationToken cancellation)
+        private async Task SendResult(
+            int corrNum,
+            object result,
+            Type resultType,
+            Exception exception,
+            bool waitTask,
+            CancellationToken cancellation)
         {
             if (exception == null && waitTask)
             {
@@ -914,11 +961,11 @@ namespace AI4E.Utils.Proxying
 
                     if (exception != null)
                     {
-                        Serialize(writer, exception, exception.GetType());
+                        Serialize(writer, exception, exception.GetType(), null);
                     }
                     else
                     {
-                        Serialize(writer, result, resultType);
+                        Serialize(writer, result, resultType, null);
                     }
                 }
 
@@ -958,6 +1005,8 @@ namespace AI4E.Utils.Proxying
 
             using (var stream = new MemoryStream())
             {
+                var cancellationTokens = new List<CancellationToken>();
+
                 do
                 {
                     seqNum = Interlocked.Increment(ref _nextSeqNum);
@@ -973,17 +1022,138 @@ namespace AI4E.Utils.Proxying
                         writer.Write(proxyId);
                         writer.Write(waitTask);
                         SerializeMethod(writer, method);
-                        Serialize(writer, args.ElementWiseMerge(method.GetParameters(), (arg, param) => (arg, param.ParameterType)));
+                        Serialize(writer, args.ElementWiseMerge(method.GetParameters(), (arg, param) => (arg, param.ParameterType)), cancellationTokens);
                         writer.Flush();
                     }
                 }
                 while (!TryGetResultTask(seqNum, out task));
 
                 stream.Position = 0;
-                await SendAsync(stream, cancellation: default);
-            }
 
-            return await task;
+                var registrations = new List<CancellationTokenRegistration>(capacity: cancellationTokens.Count);
+                var cancellations = new List<Task>();
+
+                using (var cancellationOperationCancellation = new CancellationTokenSource())
+                {
+                    try
+                    {
+                        for (var id = 0; id < cancellationTokens.Count; id++)
+                        {
+                            var cancellationToken = cancellationTokens[id];
+                            if (!cancellationToken.CanBeCanceled)
+                            {
+                                continue;
+                            }
+
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                cancellations.Add(CancelMethodCall(seqNum, id, cancellationOperationCancellation.Token));
+                                continue;
+                            }
+
+                            var idCopy = id;
+                            var registration = cancellationToken.Register(() => cancellations.Add(CancelMethodCall(seqNum, idCopy, cancellationOperationCancellation.Token)));
+                            try
+                            {
+                                if (cancellationToken.IsCancellationRequested)
+                                {
+                                    cancellations.Add(CancelMethodCall(seqNum, id, cancellationOperationCancellation.Token));
+                                    registration.Dispose();
+                                    continue;
+                                }
+
+                                registrations.Add(registration);
+                            }
+                            catch
+                            {
+                                registration.Dispose();
+                                throw;
+                            }
+                        }
+
+                        await SendAsync(stream, cancellation: default);
+
+                        return await task;
+                    }
+                    finally
+                    {
+                        List<Exception> exceptions = null;
+
+                        foreach (var registration in registrations)
+                        {
+                            try
+                            {
+                                registration.Dispose();
+                            }
+                            catch (Exception exc)
+                            {
+                                if (exceptions == null)
+                                    exceptions = new List<Exception>();
+
+                                exceptions.Add(exc);
+                            }
+                        }
+
+                        cancellationOperationCancellation.Cancel();
+
+                        if (cancellations.Any())
+                        {
+                            try
+                            {
+                                await Task.WhenAll(cancellations);
+                            }
+                            catch (Exception exc)
+                            {
+                                if (exceptions == null)
+                                    exceptions = new List<Exception>();
+
+                                exceptions.Add(exc);
+                            }
+                        }
+
+                        if (exceptions != null)
+                        {
+                            if (exceptions.Count == 1)
+                            {
+                                throw exceptions[0];
+                            }
+
+                            throw new AggregateException(exceptions);
+                        }
+                    }
+                }
+            }
+        }
+
+        private async Task CancelMethodCall(int corrNum, int cancellationTokenId, CancellationToken cancellation)
+        {
+            var delay = TimeSpan.FromMilliseconds(200);
+            var maxDelay = TimeSpan.FromMilliseconds(1000);
+
+            while (!cancellation.IsCancellationRequested)
+            {
+                var seqNum = Interlocked.Increment(ref _nextSeqNum);
+
+                using (var stream = new MemoryStream())
+                {
+                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
+                    {
+                        writer.Write((byte)MessageType.CancellationRequest);
+                        writer.Write(seqNum);
+                        writer.Write(corrNum);
+                        writer.Write(cancellationTokenId);
+                    }
+
+                    stream.Position = 0;
+                    await SendAsync(stream, cancellation: default);
+                }
+
+                await Task.Delay(delay, cancellation);
+                delay += delay;
+
+                if (delay > maxDelay)
+                    delay = maxDelay;
+            }
         }
 
         private bool TryGetResultTask<TResult>(int seqNum, out Task<TResult> task)
@@ -1121,7 +1291,7 @@ namespace AI4E.Utils.Proxying
             return result;
         }
 
-        private void Serialize(BinaryWriter writer, IEnumerable<(object obj, Type objType)> objs)
+        private void Serialize(BinaryWriter writer, IEnumerable<(object obj, Type objType)> objs, List<CancellationToken> cancellationTokens)
         {
             writer.Write(objs?.Count() ?? 0);
 
@@ -1129,12 +1299,12 @@ namespace AI4E.Utils.Proxying
             {
                 foreach (var (obj, objType) in objs)
                 {
-                    Serialize(writer, obj, objType);
+                    Serialize(writer, obj, objType, cancellationTokens);
                 }
             }
         }
 
-        private IEnumerable<object> Deserialize(BinaryReader reader, ParameterInfo[] parameterInfos)
+        private IEnumerable<object> Deserialize(BinaryReader reader, ParameterInfo[] parameterInfos, Dictionary<int, CancellationTokenSource> cancellationTokenSources)
         {
             var objectCount = reader.ReadInt32();
             for (var i = 0; i < objectCount; i++)
@@ -1144,11 +1314,11 @@ namespace AI4E.Utils.Proxying
                     yield break;// TODO
                 }
 
-                yield return Deserialize(reader, parameterInfos?[i].ParameterType);
+                yield return Deserialize(reader, parameterInfos?[i].ParameterType, cancellationTokenSources);
             }
         }
 
-        private void Serialize(BinaryWriter writer, object obj, Type objType)
+        private void Serialize(BinaryWriter writer, object obj, Type objType, List<CancellationToken> cancellationTokens)
         {
             Debug.Assert(obj == null && (objType.CanContainNull() || objType == typeof(void)) || obj != null && objType.IsAssignableFrom(obj.GetType()));
 
@@ -1245,9 +1415,19 @@ namespace AI4E.Utils.Proxying
 
                 case CancellationToken cancellationToken:
                     writer.Write((byte)TypeCode.CancellationToken);
+                    if (cancellationTokens == null || !cancellationToken.CanBeCanceled)
+                    {
+                        writer.Write(-1);
+                    }
+                    else
+                    {
+                        writer.Write(cancellationTokens.Count);
+                        cancellationTokens.Add(cancellationToken);
+                    }
+
                     break;
 
-                case object _ when (objType.IsInterface && !objType.IsSerializable):
+                case object _ when objType.IsInterface && !objType.IsSerializable:
                     var createdProxy = CreateProxy(obj.GetType(), obj, ownsInstance: false);
                     writer.Write((byte)TypeCode.Proxy);
                     SerializeProxy(writer, createdProxy);
@@ -1261,7 +1441,7 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        private object Deserialize(BinaryReader reader, Type expectedType)
+        private object Deserialize(BinaryReader reader, Type expectedType, Dictionary<int, CancellationTokenSource> cancellationTokenSources)
         {
             var typeCode = (TypeCode)reader.ReadByte();
 
@@ -1326,7 +1506,15 @@ namespace AI4E.Utils.Proxying
                     return DeserializeProxy(reader, expectedType);
 
                 case TypeCode.CancellationToken:
-                    return CancellationToken.None; // TODO: Cancellation token support
+                    var id = reader.ReadInt32();
+
+                    if (id < 0 || cancellationTokenSources == null)
+                    {
+                        return CancellationToken.None;
+                    }
+
+                    var cancellationToken = cancellationTokenSources.GetOrAdd(id, _ => new CancellationTokenSource()).Token;
+                    return cancellationToken;
 
                 case TypeCode.Other:
                     return GetBinaryFormatter().Deserialize(reader.BaseStream);
@@ -1507,7 +1695,8 @@ namespace AI4E.Utils.Proxying
             ReturnValue,
             ReturnException,
             Activation,
-            Deactivation
+            Deactivation,
+            CancellationRequest
         }
     }
 }
