@@ -100,7 +100,7 @@ namespace AI4E.Utils.Proxying.Test
                 GC.WaitForPendingFinalizers();
 
                 // The remote proxy must be unregistered.
-                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxy)remoteProxy));
+                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
 
                 // The remote proxy must be disposed.
                 Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -133,7 +133,7 @@ namespace AI4E.Utils.Proxying.Test
                 GC.WaitForPendingFinalizers();
 
                 // The remote proxy must be unregistered.
-                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxy)remoteProxy));
+                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
 
                 // The remote proxy must be disposed.
                 Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -166,7 +166,7 @@ namespace AI4E.Utils.Proxying.Test
                 GC.WaitForPendingFinalizers();
 
                 // The remote proxy must be unregistered.
-                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxy)remoteProxy));
+                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
 
                 // The remote proxy must be disposed.
                 Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -183,7 +183,7 @@ namespace AI4E.Utils.Proxying.Test
         public async Task ConnectionBreakdownTest()
         {
             ProxyHost localProxyHost, remoteProxyHost;
-            Proxy<Foo> localProxy, remoteProxy;
+            IProxy<Foo> localProxy, remoteProxy;
 
             using (var fs1 = new FloatingStream())
             using (var fs2 = new FloatingStream())
@@ -194,7 +194,7 @@ namespace AI4E.Utils.Proxying.Test
                 localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
 
                 localProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
-                remoteProxy = (Proxy<Foo>)remoteProxyHost.LocalProxies.First();
+                remoteProxy = (IProxy<Foo>)remoteProxyHost.LocalProxies.First();
             }
 
             await Assert.ThrowsExceptionAsync<ObjectDisposedException>(async () =>
@@ -203,7 +203,7 @@ namespace AI4E.Utils.Proxying.Test
             });
 
             // The remote proxy must be unregistered.
-            Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxy)remoteProxy));
+            Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
 
             // The remote proxy must be disposed.
             Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -304,7 +304,7 @@ namespace AI4E.Utils.Proxying.Test
 
                 var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
                 var value = new Value(5);
-                var valueLocalProxy = new Proxy<Value>(value, ownsInstance: true);
+                var valueLocalProxy = ProxyHost.CreateProxy<Value>(value, ownsInstance: true);
 
                 var resultProxy = await fooProxy.ExecuteAsync(foo => foo.GetBackProxy(valueLocalProxy));
 
@@ -334,7 +334,7 @@ namespace AI4E.Utils.Proxying.Test
 
                 var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
                 var value = new Value(5);
-                var valueLocalProxy = new Proxy<Value>(value, ownsInstance: true);
+                var valueLocalProxy = ProxyHost.CreateProxy<Value>(value, ownsInstance: true);
 
                 var result = await fooProxy.ExecuteAsync(foo => foo.ReadValueAsync(valueLocalProxy));
 

@@ -32,6 +32,7 @@ using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -48,7 +49,10 @@ using Nito.AsyncEx;
 
 namespace AI4E.Utils.Proxying
 {
-    public sealed class ProxyHost : IAsyncDisposable
+    /// <summary>
+    /// Represents a proxy host.
+    /// </summary>
+    public sealed class ProxyHost : IAsyncDisposable, IProxyHost
     {
         #region Fields
 
@@ -57,8 +61,8 @@ namespace AI4E.Utils.Proxying
         private readonly AsyncLock _sendLock = new AsyncLock();
         private readonly IAsyncProcess _receiveProcess;
         private readonly ConcurrentDictionary<int, Action<MessageType, object>> _responseTable = new ConcurrentDictionary<int, Action<MessageType, object>>();
-        private readonly Dictionary<object, IProxy> _proxyLookup = new Dictionary<object, IProxy>();
-        private readonly Dictionary<int, IProxy> _proxies = new Dictionary<int, IProxy>();
+        private readonly Dictionary<object, IProxyInternal> _proxyLookup = new Dictionary<object, IProxyInternal>();
+        private readonly Dictionary<int, IProxyInternal> _proxies = new Dictionary<int, IProxyInternal>();
         private readonly object _proxyLock = new object();
         private readonly AsyncDisposeHelper _disposeHelper;
 
@@ -69,6 +73,11 @@ namespace AI4E.Utils.Proxying
 
         #region Ctor
 
+        /// <summary>
+        /// Creates a new instance of the <see cref="ProxyHost"/> type.
+        /// </summary>
+        /// <param name="stream">A <see cref="Stream"/> that is used to communicate with the remote end-point.</param>
+        /// <param name="serviceProvider">A <see cref="IServiceProvider"/> that is used to resolve services.</param>
         public ProxyHost(Stream stream, IServiceProvider serviceProvider)
         {
             if (stream == null)
@@ -88,29 +97,32 @@ namespace AI4E.Utils.Proxying
 
         #region Activation
 
-        public Task<Proxy<TRemote>> CreateAsync<TRemote>(object[] parameter, CancellationToken cancellation)
+        /// <inheritdoc />
+        public Task<IProxy<TRemote>> CreateAsync<TRemote>(object[] parameter, CancellationToken cancellation)
             where TRemote : class
         {
             return ActivateAsync<TRemote>(ActivationMode.Create, parameter ?? new object[0], cancellation);
         }
 
-        public Task<Proxy<TRemote>> CreateAsync<TRemote>(CancellationToken cancellation)
+        /// <inheritdoc />
+        public Task<IProxy<TRemote>> CreateAsync<TRemote>(CancellationToken cancellation)
             where TRemote : class
         {
             return ActivateAsync<TRemote>(ActivationMode.Create, new object[0], cancellation);
         }
 
-        public Task<Proxy<TRemote>> LoadAsync<TRemote>(CancellationToken cancellation)
+        /// <inheritdoc />
+        public Task<IProxy<TRemote>> LoadAsync<TRemote>(CancellationToken cancellation)
             where TRemote : class
         {
             return ActivateAsync<TRemote>(ActivationMode.Load, parameter: null, cancellation);
         }
 
-        private async Task<Proxy<TRemote>> ActivateAsync<TRemote>(ActivationMode mode, object[] parameter, CancellationToken cancellation)
+        private async Task<IProxy<TRemote>> ActivateAsync<TRemote>(ActivationMode mode, object[] parameter, CancellationToken cancellation)
             where TRemote : class
         {
             int seqNum;
-            Task<Proxy<TRemote>> result;
+            Task<IProxy<TRemote>> result;
 
             using (var stream = new MemoryStream())
             {
@@ -161,13 +173,16 @@ namespace AI4E.Utils.Proxying
 
         #region Disposal
 
+        /// <inheritdoc />
         public Task Disposal => _disposeHelper.Disposal;
 
+        /// <inheritdoc />
         public void Dispose()
         {
             _disposeHelper.Dispose();
         }
 
+        /// <inheritdoc />
         public Task DisposeAsync()
         {
             return _disposeHelper.DisposeAsync();
@@ -177,7 +192,7 @@ namespace AI4E.Utils.Proxying
         {
             await _receiveProcess.TerminateAsync().HandleExceptionsAsync();
 
-            IEnumerable<IProxy> proxies;
+            IEnumerable<IProxyInternal> proxies;
 
             lock (_proxyLock)
             {
@@ -191,7 +206,7 @@ namespace AI4E.Utils.Proxying
 
         #region Proxies
 
-        internal IProxy RegisterLocalProxy(IProxy proxy)
+        private IProxyInternal RegisterLocalProxy(IProxyInternal proxy)
         {
             lock (_proxyLock)
             {
@@ -211,7 +226,7 @@ namespace AI4E.Utils.Proxying
             return proxy;
         }
 
-        private void UnregisterLocalProxy(IProxy proxy)
+        private void UnregisterLocalProxy(IProxyInternal proxy)
         {
             lock (_proxyLock)
             {
@@ -220,7 +235,7 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        private bool TryGetProxyById(int proxyId, out IProxy proxy)
+        private bool TryGetProxyById(int proxyId, out IProxyInternal proxy)
         {
             lock (_proxyLock)
             {
@@ -232,7 +247,7 @@ namespace AI4E.Utils.Proxying
         /// Gets a collection of registered local proxies.
         /// FOR TEST AND DEBUGGING PUPOSES ONLY.
         /// </summary>
-        internal IReadOnlyCollection<IProxy> LocalProxies
+        internal IReadOnlyCollection<IProxyInternal> LocalProxies
         {
             get
             {
@@ -241,6 +256,23 @@ namespace AI4E.Utils.Proxying
                     return _proxies.Values.ToImmutableList();
                 }
             }
+        }
+
+        /// <summary>
+        /// Creates a new proxy from the specified object instance.
+        /// </summary>
+        /// <typeparam name="TRemote">The type of object that a proxy is created for.</typeparam>
+        /// <param name="instance">The instance a proxy is created for.</param>
+        /// <param name="ownsInstance">A boolean value indicating whether the proxy host owns the instance.</param>
+        /// <returns>The create proxy.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="instance"/> is <c>null</c>.</exception>
+        public static IProxy<TRemote> CreateProxy<TRemote>(TRemote instance, bool ownsInstance = false)
+            where TRemote : class
+        {
+            if (instance == null)
+                throw new ArgumentNullException(nameof(instance));
+
+            return new Proxy<TRemote>(instance, ownsInstance);
         }
 
         #endregion
@@ -370,7 +402,7 @@ namespace AI4E.Utils.Proxying
                     instance = _serviceProvider.GetRequiredService(type);
                 }
 
-                var proxy = (IProxy)Activator.CreateInstance(typeof(Proxy<>).MakeGenericType(type), BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new[] { instance, ownsInstance }, null);
+                var proxy = (IProxyInternal)Activator.CreateInstance(typeof(Proxy<>).MakeGenericType(type), BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new[] { instance, ownsInstance }, null);
                 result = RegisterLocalProxy(proxy);
             }
             catch (TargetInvocationException exc)
@@ -781,7 +813,7 @@ namespace AI4E.Utils.Proxying
                     writer.Write(value);
                     break;
 
-                case IProxy proxy:
+                case IProxyInternal proxy:
                     writer.Write((byte)TypeCode.Proxy);
 
                     if (proxy.LocalInstance != null)
@@ -983,6 +1015,287 @@ namespace AI4E.Utils.Proxying
         {
             Create,
             Load
+        }
+
+        internal interface IProxyInternal : IAsyncDisposable
+        {
+            object LocalInstance { get; }
+
+            Type ObjectType { get; }
+            int Id { get; }
+
+            void Register(ProxyHost host, int proxyId, Action unregisterAction);
+        }
+
+        internal sealed class Proxy<TRemote> : IProxy<TRemote>, IProxyInternal
+            where TRemote : class
+        {
+            private ProxyHost _host;
+            private Action _unregisterAction;
+            private readonly Type _remoteType;
+            private readonly bool _ownsInstance;
+            private readonly AsyncDisposeHelper _disposeHelper;
+
+            #region C'tor
+
+            internal Proxy(TRemote instance, bool ownsInstance)
+            {
+                LocalInstance = instance;
+
+                _disposeHelper = new AsyncDisposeHelper(DisposeInternalAsync);
+                _ownsInstance = ownsInstance;
+            }
+
+            internal Proxy(ProxyHost host, int id, Type remoteType)
+            {
+                _host = host;
+                Id = id;
+                _remoteType = remoteType;
+                _disposeHelper = new AsyncDisposeHelper(DisposeInternalAsync);
+            }
+
+            #endregion
+
+            public TRemote LocalInstance { get; }
+
+            public Type ObjectType => IsRemoteProxy ? _remoteType : LocalInstance.GetType();
+
+            public Type RemoteType => typeof(TRemote);
+
+            public int Id { get; private set; }
+
+            object IProxyInternal.LocalInstance => LocalInstance;
+            object IProxy.LocalInstance => LocalInstance;
+
+            internal bool IsRemoteProxy => LocalInstance == null;
+
+            #region Disposal
+
+            public Task Disposal => _disposeHelper.Disposal;
+
+            public void Dispose()
+            {
+                _disposeHelper.Dispose();
+            }
+
+            public Task DisposeAsync()
+            {
+                return _disposeHelper.DisposeAsync();
+            }
+
+            private async Task DisposeInternalAsync()
+            {
+                if (IsRemoteProxy)
+                {
+                    Debug.Assert(_host != null);
+
+                    await _host.Deactivate(Id, cancellation: default);
+                }
+                else
+                {
+                    _unregisterAction?.Invoke();
+
+                    if (_ownsInstance)
+                    {
+                        if (LocalInstance is IAsyncDisposable asyncDisposable)
+                        {
+                            await asyncDisposable.DisposeAsync();
+                        }
+                        else if (LocalInstance is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                }
+            }
+
+            ~Proxy()
+            {
+                try
+                {
+                    _disposeHelper.Dispose();
+                }
+                catch (ObjectDisposedException) { }
+            }
+
+            #endregion
+
+            public async Task ExecuteAsync(Expression<Action<TRemote>> expression)
+            {
+                try
+                {
+                    using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                    {
+                        if (IsRemoteProxy)
+                        {
+                            await _host.SendMethodCallAsync<object>(expression.Body, Id, false);
+                        }
+
+                        var compiled = expression.Compile();
+
+                        compiled.Invoke(LocalInstance);
+                    }
+                }
+                catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+            }
+
+            public async Task ExecuteAsync(Expression<Func<TRemote, Task>> expression)
+            {
+                try
+                {
+                    using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                    {
+                        if (IsRemoteProxy)
+                        {
+                            await _host.SendMethodCallAsync<object>(expression.Body, Id, true);
+                            return;
+                        }
+
+                        var compiled = expression.Compile();
+
+                        await compiled.Invoke(LocalInstance);
+                    }
+                }
+                catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+            }
+
+            public async Task<TResult> ExecuteAsync<TResult>(Expression<Func<TRemote, TResult>> expression)
+            {
+                try
+                {
+                    using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                    {
+                        if (IsRemoteProxy)
+                        {
+                            return await _host.SendMethodCallAsync<TResult>(expression.Body, Id, false);
+                        }
+
+                        var compiled = expression.Compile();
+                        return compiled.Invoke(LocalInstance);
+                    }
+                }
+                catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+            }
+
+            public async Task<TResult> ExecuteAsync<TResult>(Expression<Func<TRemote, Task<TResult>>> expression)
+            {
+                try
+                {
+                    using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                    {
+                        if (IsRemoteProxy)
+                        {
+                            return await _host.SendMethodCallAsync<TResult>(expression.Body, Id, true);
+                        }
+
+                        var compiled = expression.Compile();
+
+                        return await compiled.Invoke(LocalInstance);
+                    }
+                }
+                catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+            }
+
+            public void Register(ProxyHost host, int proxyId, Action unregisterAction)
+            {
+                if (unregisterAction == null)
+                    throw new ArgumentNullException(nameof(unregisterAction));
+
+                _host = host;
+                Id = proxyId;
+                _unregisterAction = unregisterAction;
+            }
+
+            public IProxy<TCast> Cast<TCast>()
+                where TCast : class
+            {
+                return new CastProxy<TRemote, TCast>(this);
+            }
+        }
+
+        internal sealed class CastProxy<TRemote, TCast> : IProxy<TCast>
+            where TRemote : class
+            where TCast : class
+        {
+            private readonly Proxy<TRemote> _original;
+
+            public CastProxy(Proxy<TRemote> original)
+            {
+                if (!typeof(TCast).IsAssignableFrom(original.ObjectType))
+                    throw new ArgumentException($"Unable to cast the proxy. The type {original.ObjectType} cannot be cast to type {typeof(TCast)}.");
+
+                _original = original;
+            }
+
+            public TCast LocalInstance => _original.IsRemoteProxy ? null : (TCast)(object)_original.LocalInstance;
+
+            object IProxy.LocalInstance => LocalInstance;
+
+            public Type ObjectType => _original.ObjectType;
+
+            public Type RemoteType => typeof(TCast);
+
+            public int Id => _original.Id;
+
+            private Expression<TDelegate> ConvertExpression<TDelegate>(LambdaExpression expression)
+                where TDelegate : Delegate
+            {
+                var parameter = expression.Parameters.First();
+                var body = expression.Body;
+
+                var newParameter = Expression.Parameter(typeof(TRemote));
+                var newBody = ParameterExpressionReplacer.ReplaceParameter(body, parameter, newParameter);
+                return Expression.Lambda<TDelegate>(newBody, newParameter);
+            }
+
+            public Task ExecuteAsync(Expression<Action<TCast>> expression)
+            {
+                return _original.ExecuteAsync(ConvertExpression<Action<TRemote>>(expression));
+            }
+
+            public Task ExecuteAsync(Expression<Func<TCast, Task>> expression)
+            {
+                return _original.ExecuteAsync(ConvertExpression<Func<TRemote, Task>>(expression));
+            }
+
+            public Task<TResult> ExecuteAsync<TResult>(Expression<Func<TCast, TResult>> expression)
+            {
+                return _original.ExecuteAsync(ConvertExpression<Func<TRemote, TResult>>(expression));
+            }
+
+            public Task<TResult> ExecuteAsync<TResult>(Expression<Func<TCast, Task<TResult>>> expression)
+            {
+                return _original.ExecuteAsync(ConvertExpression<Func<TRemote, Task<TResult>>>(expression));
+            }
+
+            public IProxy<T> Cast<T>() where T : class
+            {
+                return _original.Cast<T>();
+            }
+
+            public void Dispose()
+            {
+                _original.Dispose();
+            }
+
+            public Task DisposeAsync()
+            {
+                return _original.DisposeAsync();
+            }
+
+            public Task Disposal => _original.Disposal;
         }
     }
 }

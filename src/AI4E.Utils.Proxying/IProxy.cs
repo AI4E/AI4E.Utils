@@ -33,28 +33,86 @@ using AI4E.Utils.Async;
 
 namespace AI4E.Utils.Proxying
 {
-    internal interface IProxy : IAsyncDisposable
+    /// <summary>
+    /// Represents a proxy.
+    /// </summary>
+    public interface IProxy : IAsyncDisposable
     {
+        /// <summary>
+        /// Gets the local proxied instance or null if this is a remote proxy.
+        /// </summary>
         object LocalInstance { get; }
 
+        /// <summary>
+        /// Gets the static type of the proxy.
+        /// </summary>
+        Type RemoteType { get; }
+
+        /// <summary>
+        /// Gets the dynamic type of the proxied instance.
+        /// </summary>
         Type ObjectType { get; }
+
+        /// <summary>
+        /// Gets the proxy id.
+        /// </summary>
         int Id { get; }
 
-        void Register(ProxyHost host, int proxyId, Action unregisterAction);
+        /// <summary>
+        /// Casts the proxy to a proxy with the specified remote type.
+        /// </summary>
+        /// <typeparam name="TCast">The remote type of the result proxy.</typeparam>
+        /// <returns>The cast proxy.</returns>
+        /// <exception cref="ArgumentException">Thrown if the object type is not assignable to <typeparamref name="TCast"/>.</exception>
+        IProxy<TCast> Cast<TCast>() where TCast : class;
     }
 
-    public interface IProxy<TRemote> : IAsyncDisposable
+    /// <summary>
+    /// Represents a proxy of the specified type.
+    /// </summary>
+    /// <typeparam name="TRemote">The static type of the proxied object.</typeparam>
+    public interface IProxy<TRemote> : IProxy
         where TRemote : class
     {
-        TRemote LocalInstance { get; }
+        /// <summary>
+        /// Gets the local proxied instance or null if this is a remote proxy.
+        /// </summary>
+        new TRemote LocalInstance { get; }
 
-        Type ObjectType { get; }
-        int Id { get; }
-
+        /// <summary>
+        /// Asynchronously invokes a member on the proxy instance.
+        /// </summary>
+        /// <param name="expression">The expression that described the invokation.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         Task ExecuteAsync(Expression<Action<TRemote>> expression);
+
+        /// <summary>
+        /// Asynchronously invokes a member on the proxy instance.
+        /// </summary>
+        /// <param name="expression">The expression that described the invokation.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         Task ExecuteAsync(Expression<Func<TRemote, Task>> expression);
 
+        /// <summary>
+        /// Asynchronously invokes a member on the proxy instance.
+        /// </summary>
+        /// <typeparam name="TResult">The result type.</typeparam>
+        /// <param name="expression">The expression that described the invokation.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// When evaluated, the tasks result contains the result of the invokation.
+        /// </returns>
         Task<TResult> ExecuteAsync<TResult>(Expression<Func<TRemote, TResult>> expression);
+
+        /// <summary>
+        /// Asynchronously invokes a member on the proxy instance.
+        /// </summary>
+        /// <typeparam name="TResult">The result type.</typeparam>
+        /// <param name="expression">The expression that described the invokation.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// When evaluated, the tasks result contains the result of the invokation.
+        /// </returns>
         Task<TResult> ExecuteAsync<TResult>(Expression<Func<TRemote, Task<TResult>>> expression);
     }
 }

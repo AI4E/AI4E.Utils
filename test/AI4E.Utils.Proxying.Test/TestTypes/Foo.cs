@@ -48,12 +48,12 @@ namespace AI4E.Utils.Proxying.Test.TestTypes
             return default;
         }
 
-        public Task<int> ReadValueAsync(Proxy<Value> proxy)
+        public Task<int> ReadValueAsync(IProxy<Value> proxy)
         {
             return proxy.ExecuteAsync(value => value.GetValue());
         }
 
-        public Proxy<Value> GetBackProxy(Proxy<Value> proxy)
+        public IProxy<Value> GetBackProxy(IProxy<Value> proxy)
         {
             return proxy;
         }

@@ -32,9 +32,9 @@ namespace AI4E.Utils.Proxying.Test.TestTypes
 {
     public sealed class Bar : IDisposable
     {
-        public Proxy<Foo> GetFoo()
+        public IProxy<Foo> GetFoo()
         {
-            return new Proxy<Foo>(new Foo(), ownsInstance: true);
+            return ProxyHost.CreateProxy(new Foo(), ownsInstance: true);
         }
 
         public void Dispose()
