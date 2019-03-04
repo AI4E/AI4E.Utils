@@ -125,7 +125,10 @@ namespace AI4E.Utils.Proxying
                     {
                         writer.Write((byte)MessageType.Activation);
                         writer.Write(seqNum);
-                        Serialize(writer, new ActivationDescripor { Mode = mode, RemoteType = typeof(TRemote).AssemblyQualifiedName, Parameter = parameter });
+
+                        writer.Write((byte)mode);
+                        WriteType(writer, typeof(TRemote));
+                        Serialize(writer, parameter);
                     }
                 }
                 while (!TryGetResultTask(seqNum, out result));
@@ -237,9 +240,8 @@ namespace AI4E.Utils.Proxying
                 {
                     return _proxies.Values.ToImmutableList();
                 }
-            }          
+            }
         }
-
 
         #endregion
 
@@ -352,15 +354,14 @@ namespace AI4E.Utils.Proxying
 
             try
             {
-                var activation = (ActivationDescripor)Deserialize(reader, expectedType: default);
-                var mode = activation.Mode;
-                var type = LoadTypeIgnoringVersion(activation.RemoteType);
+                var mode = (ActivationMode)reader.ReadByte();
+                var type = ReadType(reader);
+                var parameter = Deserialize(reader, (ParameterInfo[])null).ToArray();
                 var instance = default(object);
                 var ownsInstance = false;
 
                 if (mode == ActivationMode.Create)
                 {
-                    var parameter = activation.Parameter;
                     instance = ActivatorUtilities.CreateInstance(_serviceProvider, type, parameter);
                     ownsInstance = true;
                 }
@@ -667,10 +668,14 @@ namespace AI4E.Utils.Proxying
 
         private void Serialize(BinaryWriter writer, IEnumerable<object> objs)
         {
-            writer.Write(objs.Count());
-            foreach (var obj in objs)
+            writer.Write(objs?.Count() ?? 0);
+
+            if (objs != null)
             {
-                Serialize(writer, obj);
+                foreach (var obj in objs)
+                {
+                    Serialize(writer, obj);
+                }
             }
         }
 
@@ -679,12 +684,12 @@ namespace AI4E.Utils.Proxying
             var objectCount = reader.ReadInt32();
             for (var i = 0; i < objectCount; i++)
             {
-                if (i >= parameterInfos.Length)
+                if (parameterInfos != null && i >= parameterInfos.Length)
                 {
                     yield break;// TODO
                 }
 
-                yield return Deserialize(reader, parameterInfos[i].ParameterType);
+                yield return Deserialize(reader, parameterInfos?[i].ParameterType);
             }
         }
 
@@ -767,7 +772,7 @@ namespace AI4E.Utils.Proxying
 
                 case Type type:
                     writer.Write((byte)TypeCode.Type);
-                    writer.Write(type.AssemblyQualifiedName);
+                    WriteType(writer, type);
                     break;
 
                 case byte[] value:
@@ -863,8 +868,7 @@ namespace AI4E.Utils.Proxying
                     return reader.ReadString();
 
                 case TypeCode.Type:
-                    var assemblyQualifiedName = reader.ReadString();
-                    return LoadTypeIgnoringVersion(assemblyQualifiedName);
+                    return ReadType(reader);
 
                 case TypeCode.ByteArray:
                     var length = reader.ReadInt32();
@@ -908,6 +912,17 @@ namespace AI4E.Utils.Proxying
                 default:
                     throw new FormatException("Unknown type code.");
             }
+        }
+
+        private void WriteType(BinaryWriter writer, Type type)
+        {
+            writer.Write(type.AssemblyQualifiedName);
+        }
+
+        private Type ReadType(BinaryReader reader)
+        {
+            var assemblyQualifiedName = reader.ReadString();
+            return LoadTypeIgnoringVersion(assemblyQualifiedName);
         }
 
         private BinaryFormatter GetBinaryFormatter()
@@ -968,16 +983,6 @@ namespace AI4E.Utils.Proxying
         {
             Create,
             Load
-        }
-
-        [Serializable]
-        private struct ActivationDescripor
-        {
-            public string RemoteType { get; set; }
-
-            public ActivationMode Mode { get; set; }
-
-            public object[] Parameter { get; set; }
         }
     }
 }
