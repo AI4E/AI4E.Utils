@@ -1047,17 +1047,17 @@ namespace AI4E.Utils.Proxying
 
                             if (cancellationToken.IsCancellationRequested)
                             {
-                                cancellations.Add(CancelMethodCall(seqNum, id, cancellationOperationCancellation.Token));
+                                cancellations.Add(CancelMethodCallAsync(seqNum, id, cancellationOperationCancellation.Token));
                                 continue;
                             }
 
                             var idCopy = id;
-                            var registration = cancellationToken.Register(() => cancellations.Add(CancelMethodCall(seqNum, idCopy, cancellationOperationCancellation.Token)));
+                            var registration = cancellationToken.Register(() => cancellations.Add(CancelMethodCallAsync(seqNum, idCopy, cancellationOperationCancellation.Token)));
                             try
                             {
                                 if (cancellationToken.IsCancellationRequested)
                                 {
-                                    cancellations.Add(CancelMethodCall(seqNum, id, cancellationOperationCancellation.Token));
+                                    cancellations.Add(CancelMethodCallAsync(seqNum, id, cancellationOperationCancellation.Token));
                                     registration.Dispose();
                                     continue;
                                 }
@@ -1125,7 +1125,7 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        private async Task CancelMethodCall(int corrNum, int cancellationTokenId, CancellationToken cancellation)
+        private async Task CancelMethodCallAsync(int corrNum, int cancellationTokenId, CancellationToken cancellation)
         {
             var delay = TimeSpan.FromMilliseconds(200);
             var maxDelay = TimeSpan.FromMilliseconds(1000);
@@ -1148,7 +1148,15 @@ namespace AI4E.Utils.Proxying
                     await SendAsync(stream, cancellation: default);
                 }
 
-                await Task.Delay(delay, cancellation);
+                try
+                {
+                    await Task.Delay(delay, cancellation);
+                }
+                catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+                {
+                    return;
+                }
+
                 delay += delay;
 
                 if (delay > maxDelay)
