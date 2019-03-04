@@ -2,7 +2,7 @@
  * --------------------------------------------------------------------------------------------------------------------
  * This file is part of the AI4E distribution.
  *   (https://github.com/AI4E/AI4E.Utils)
- * Copyright (c) 2018-2019 - 2019-2019 Andreas Truetschel and contributors.
+ * Copyright (c) 2018-2019 Andreas Truetschel and contributors.
  * 
  * MIT License
  * 

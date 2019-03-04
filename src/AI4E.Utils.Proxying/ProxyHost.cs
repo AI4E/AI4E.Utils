@@ -2,7 +2,7 @@
  * --------------------------------------------------------------------------------------------------------------------
  * This file is part of the AI4E distribution.
  *   (https://github.com/AI4E/AI4E.Utils)
- * Copyright (c) 2018-2019 - 2019-2019 Andreas Truetschel and contributors.
+ * Copyright (c) 2018-2019 Andreas Truetschel and contributors.
  * 
  * MIT License
  * 
@@ -27,8 +27,11 @@
  */
 
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -40,12 +43,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using AI4E.Utils.Async;
 using AI4E.Utils.Processing;
-using AI4E.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx;
-using System.Buffers.Binary;
-using System.Buffers;
-using System.Collections.Immutable;
 
 namespace AI4E.Utils.Proxying
 {
