@@ -45,6 +45,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx;
 using System.Buffers.Binary;
 using System.Buffers;
+using System.Collections.Immutable;
 
 namespace AI4E.Utils.Proxying
 {
@@ -224,6 +225,22 @@ namespace AI4E.Utils.Proxying
                 return _proxies.TryGetValue(proxyId, out proxy);
             }
         }
+
+        /// <summary>
+        /// Gets a collection of registered local proxies.
+        /// FOR TEST AND DEBUGGING PUPOSES ONLY.
+        /// </summary>
+        internal IReadOnlyCollection<IProxy> LocalProxies
+        {
+            get
+            {
+                lock (_proxyLock)
+                {
+                    return _proxies.Values.ToImmutableList();
+                }
+            }          
+        }
+
 
         #endregion
 
