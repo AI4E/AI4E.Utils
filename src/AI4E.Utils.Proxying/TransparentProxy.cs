@@ -36,11 +36,9 @@ namespace AI4E.Utils.Proxying
     /// <summary>
     /// A base type for transparent proxies. This type is not meant to be used directly.
     /// </summary>
-    /// <typeparam name="TRemote">The type of remote proxy.</typeparam>
-    /// <typeparam name="TCast">The type of dynamic proxy instance.</typeparam>
-    public class TransparentProxy<TRemote, TCast> : DispatchProxy, ProxyHost.IProxyInternal
-            where TRemote : class
-            where TCast : class
+    /// <typeparam name="T">The type of dynamic proxy instance.</typeparam>
+    public class TransparentProxy<T> : DispatchProxy, ProxyHost.IProxyInternal
+            where T : class
     {
         internal ProxyHost.IProxyInternal Proxy { get; private set; }
 
@@ -112,13 +110,13 @@ namespace AI4E.Utils.Proxying
             Proxy = proxy;
         }
 
-        internal static TCast Create(ProxyHost.IProxyInternal proxy)
+        internal static T Create(ProxyHost.IProxyInternal proxy)
         {
-            object transparentProxy = Create<TCast, TransparentProxy<TRemote, TCast>>();
+            object transparentProxy = Create<T, TransparentProxy<T>>();
 
-            ((TransparentProxy<TRemote, TCast>)transparentProxy).Configure(proxy);
+            ((TransparentProxy<T>)transparentProxy).Configure(proxy);
 
-            return (TCast)transparentProxy;
+            return (T)transparentProxy;
         }
     }
 }

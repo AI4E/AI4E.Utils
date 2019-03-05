@@ -195,7 +195,7 @@ namespace AI4E.Utils.Proxying.Test
             var instance = new Foo();
             var transparentProxy = ProxyHost.CreateProxy(instance).Cast<IFoo>().AsTransparentProxy();
 
-            Assert.AreSame(instance, transparentProxy);
+            Assert.AreSame(instance, ((ProxyHost.IProxyInternal)transparentProxy).LocalInstance);
         }
 
         [TestMethod]
@@ -780,7 +780,157 @@ namespace AI4E.Utils.Proxying.Test
             }
         }
 
-        // TODO: Add test for various primitive types, casts, properties and Serialization of complex objects.
+        [TestMethod]
+        public async Task ComplexTypeRountripTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<ComplexTypeStub>(cancellation: default);
+                var complexType = new ComplexType { Int = 5, Str = "Test" };
+                var resultComplexType = await proxy.ExecuteAsync(p => p.Echo(complexType));
+
+                Assert.IsNotNull(resultComplexType);
+                Assert.AreEqual(complexType.Int, resultComplexType.Int);
+                Assert.AreEqual(complexType.Str, resultComplexType.Str);
+            }
+        }
+
+        [TestMethod]
+        public async Task ComplexTypeWithProxyTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<ComplexTypeStub>(cancellation: default);
+                var value = new Value(10);
+                var complexType = new ComplexTypeWithProxy
+                {
+                    ProxyName = "MyProxy",
+                    Proxy = ProxyHost.CreateProxy(value)
+                };
+                var result = await proxy.ExecuteAsync(p => p.GetValueAsync(complexType));
+
+                Assert.AreEqual(value.GetValue(), result);
+            }
+        }
+
+        [TestMethod]
+        public async Task ComplexTypeWithTransparentProxyTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<ComplexTypeStub>(cancellation: default);
+                var value = new Value(10);
+                var complexType = new ComplexTypeWithTransparentProxy
+                {
+                    ProxyName = "MyProxy",
+                    Proxy = ProxyHost.CreateProxy(value).Cast<IValue>().AsTransparentProxy()
+                };
+                var result = await proxy.ExecuteAsync(p => p.GetValue(complexType));
+
+                Assert.AreEqual(value.GetValue(), result);
+            }
+        }
+
+        [TestMethod]
+        public async Task ComplexTypeWithCancellationTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var tcs = new TaskCompletionSource<object>();
+                var cancellationTestType = new ComplexTypeStub { TaskCompletionSource = tcs };
+
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider(services =>
+                {
+                    services.AddSingleton(cancellationTestType);
+                }));
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.LoadAsync<ComplexTypeStub>(cancellation: default);
+
+                using (var cancellationTokenSource = new CancellationTokenSource())
+                {
+                    var complexType = new ComplexTypeWithCancellationToken
+                    {
+                        Str = "abc",
+                        CancellationToken = cancellationTokenSource.Token
+                    };
+
+                    var task = proxy.ExecuteAsync(t => t.OperateAsync(complexType));
+                    await Task.Delay(50);
+
+                    Assert.IsTrue(cancellationTestType.Cancellation.CanBeCanceled);
+                    Assert.IsFalse(cancellationTestType.Cancellation.IsCancellationRequested);
+
+                    cancellationTokenSource.Cancel();
+
+                    await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => task);
+
+                    Assert.IsTrue(cancellationTestType.Cancellation.CanBeCanceled);
+                    Assert.IsTrue(cancellationTestType.Cancellation.IsCancellationRequested);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task ComplexTypeWithProxyResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<ComplexTypeStub>(cancellation: default);
+                var complexType = await proxy.ExecuteAsync(p => p.GetComplexTypeWithProxy());
+                var result = await complexType.Proxy.ExecuteAsync(p => p.GetValue());
+
+                Assert.AreEqual(23, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task ComplexTypeWithTransparentProxyResultTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<ComplexTypeStub>(cancellation: default);
+                var complexType = await proxy.ExecuteAsync(p => p.GetComplexTypeWithTransparentProxy());
+                var result = complexType.Proxy.GetValue();
+
+                Assert.AreEqual(23, result);
+            }
+        }
+
+        // TODO: Add tests for all primitive types and properties.
 
         private IServiceProvider BuildServiceProvider()
         {

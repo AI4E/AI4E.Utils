@@ -38,6 +38,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
@@ -75,7 +76,9 @@ namespace AI4E.Utils.Proxying
         private readonly object _cancellationTokenSourcesMutex = new object();
         private readonly Dictionary<int, Dictionary<int, CancellationTokenSource>> _cancellationTokenSources
             = new Dictionary<int, Dictionary<int, CancellationTokenSource>>();
-
+        private static volatile ImmutableList<Type> _loadedRemoteTypes = ImmutableList<Type>.Empty;
+        private static readonly HashSet<Type> _loadedTransparentProxyTypes = new HashSet<Type>();
+        private static readonly object _loadedTransparentProxyTypesMutex = new object();
         private readonly AsyncDisposeHelper _disposeHelper;
 
         private int _nextSeqNum = 0;
@@ -345,6 +348,12 @@ namespace AI4E.Utils.Proxying
         internal sealed class Proxy<TRemote> : IProxy<TRemote>, IProxyInternal
             where TRemote : class
         {
+            static Proxy()
+            {
+                var remoteType = typeof(TRemote);
+                _loadedRemoteTypes = _loadedRemoteTypes.Add(remoteType); // Volatile write op.
+            }
+
             private ProxyHost _host;
             private Action _unregisterAction;
             private readonly Type _remoteType;
@@ -572,14 +581,15 @@ namespace AI4E.Utils.Proxying
                 if (!typeof(TCast).IsInterface)
                     throw new NotSupportedException("The proxy type must be an interface.");
 
-                if (IsRemoteProxy)
+                var result = TransparentProxy<TCast>.Create(this);
+                var type = result.GetType();
+
+                lock (_loadedTransparentProxyTypesMutex)
                 {
-                    return TransparentProxy<TRemote, TCast>.Create(this);
+                    _loadedTransparentProxyTypes.Add(type);
                 }
-                else
-                {
-                    return (TCast)(object)LocalInstance;
-                }
+
+                return result;
             }
         }
 
@@ -1423,15 +1433,7 @@ namespace AI4E.Utils.Proxying
 
                 case CancellationToken cancellationToken:
                     writer.Write((byte)TypeCode.CancellationToken);
-                    if (cancellationTokens == null || !cancellationToken.CanBeCanceled)
-                    {
-                        writer.Write(-1);
-                    }
-                    else
-                    {
-                        writer.Write(cancellationTokens.Count);
-                        cancellationTokens.Add(cancellationToken);
-                    }
+                    writer.Write(SerializeCancellationToken(cancellationTokens, cancellationToken));
 
                     break;
 
@@ -1444,9 +1446,20 @@ namespace AI4E.Utils.Proxying
                 default:
                     writer.Write((byte)TypeCode.Other);
                     writer.Flush();
-                    GetBinaryFormatter().Serialize(writer.BaseStream, obj);
+                    GetBinaryFormatter(null, cancellationTokens).Serialize(writer.BaseStream, obj);
                     break;
             }
+        }
+
+        private static int SerializeCancellationToken(List<CancellationToken> cancellationTokens, CancellationToken cancellationToken)
+        {
+            if (cancellationTokens == null || !cancellationToken.CanBeCanceled)
+            {
+                return -1;
+            }
+
+            cancellationTokens.Add(cancellationToken);
+            return cancellationTokens.Count - 1;
         }
 
         private object Deserialize(BinaryReader reader, Type expectedType, Dictionary<int, CancellationTokenSource> cancellationTokenSources)
@@ -1515,21 +1528,25 @@ namespace AI4E.Utils.Proxying
 
                 case TypeCode.CancellationToken:
                     var id = reader.ReadInt32();
-
-                    if (id < 0 || cancellationTokenSources == null)
-                    {
-                        return CancellationToken.None;
-                    }
-
-                    var cancellationToken = cancellationTokenSources.GetOrAdd(id, _ => new CancellationTokenSource()).Token;
-                    return cancellationToken;
+                    return DeserializeCancellationToken(id, cancellationTokenSources);
 
                 case TypeCode.Other:
-                    return GetBinaryFormatter().Deserialize(reader.BaseStream);
+                    return GetBinaryFormatter(cancellationTokenSources, null).Deserialize(reader.BaseStream);
 
                 default:
                     throw new FormatException("Unknown type code.");
             }
+        }
+
+        private static object DeserializeCancellationToken(int id, Dictionary<int, CancellationTokenSource> cancellationTokenSources)
+        {
+            if (id < 0 || cancellationTokenSources == null)
+            {
+                return CancellationToken.None;
+            }
+
+            var cancellationToken = cancellationTokenSources.GetOrAdd(id, _ => new CancellationTokenSource()).Token;
+            return cancellationToken;
         }
 
         private void SerializeProxy(BinaryWriter writer, IProxyInternal proxy)
@@ -1558,6 +1575,16 @@ namespace AI4E.Utils.Proxying
             var actualType = LoadTypeIgnoringVersion(reader.ReadString());
             var proxyId = reader.ReadInt32();
 
+            return DeserializeProxy(expectedType, proxyOwner, proxyType, actualType, proxyId);
+        }
+
+        private object DeserializeProxy(
+            Type expectedType,
+            ProxyOwner proxyOwner,
+            Type proxyType,
+            Type actualType,
+            int proxyId)
+        {
             if (proxyOwner == ProxyOwner.Remote)
             {
                 IProxyInternal proxy;
@@ -1626,11 +1653,11 @@ namespace AI4E.Utils.Proxying
 
         private static IProxyInternal CreateTransparentProxy(Type expectedType, IProxyInternal proxy)
         {
-            var transparentProxyTypeDefinition = typeof(TransparentProxy<,>);
-            var transparentProxyType = transparentProxyTypeDefinition.MakeGenericType(proxy.RemoteType, expectedType);
+            var transparentProxyTypeDefinition = typeof(TransparentProxy<>);
+            var transparentProxyType = transparentProxyTypeDefinition.MakeGenericType(expectedType);
 
             var createMethod = transparentProxyType.GetMethod(
-                nameof(TransparentProxy<object, object>.Create),
+                nameof(TransparentProxy<object>.Create),
                 BindingFlags.Static | BindingFlags.NonPublic,
                 Type.DefaultBinder,
                 new[] { typeof(IProxyInternal) },
@@ -1652,11 +1679,35 @@ namespace AI4E.Utils.Proxying
             return LoadTypeIgnoringVersion(assemblyQualifiedName);
         }
 
-        private BinaryFormatter GetBinaryFormatter()
+        private BinaryFormatter GetBinaryFormatter(
+                Dictionary<int, CancellationTokenSource> cancellationTokenSources,
+                List<CancellationToken> cancellationTokens)
         {
             var selector = new SurrogateSelector();
 
-            return new BinaryFormatter(selector, context: default);
+            var proxySurrogate = new ProxySurrogate(this);
+            foreach (var remoteType in _loadedRemoteTypes) // Volatile read op.
+            {
+                selector.AddSurrogate(typeof(Proxy<>).MakeGenericType(remoteType), new StreamingContext(), proxySurrogate);
+            }
+
+            ImmutableList<Type> loadedTransparentProxyTypes;
+
+            lock (_loadedTransparentProxyTypesMutex)
+            {
+                loadedTransparentProxyTypes = _loadedTransparentProxyTypes.ToImmutableList();
+            }
+
+            foreach (var transparentProxyTypes in loadedTransparentProxyTypes) // Volatile read op.
+            {
+                selector.AddSurrogate(transparentProxyTypes, new StreamingContext(), proxySurrogate);
+            }
+
+            var cancellationTokenSurrogate = new CancellationTokenSurrogate(this, cancellationTokenSources, cancellationTokens);
+
+            selector.AddSurrogate(typeof(CancellationToken), new StreamingContext(), cancellationTokenSurrogate);
+
+            return new BinaryFormatter(selector, context: default) { AssemblyFormat = FormatterAssemblyStyle.Simple };
         }
 
         private static Type LoadTypeIgnoringVersion(string assemblyQualifiedName)
@@ -1705,6 +1756,97 @@ namespace AI4E.Utils.Proxying
             Activation,
             Deactivation,
             CancellationRequest
+        }
+
+        private sealed class ProxySurrogate : ISerializationSurrogate
+        {
+            private readonly ProxyHost _proxyHost;
+
+            public ProxySurrogate(ProxyHost proxyHost)
+            {
+                Debug.Assert(proxyHost != null);
+                _proxyHost = proxyHost;
+            }
+
+            public void GetObjectData(object obj, SerializationInfo info, StreamingContext context)
+            {
+                Debug.Assert(obj is IProxyInternal);
+
+                var proxy = obj as IProxyInternal;
+
+                var remoteType = proxy.RemoteType;
+                byte proxyOwner;
+
+                if (proxy.LocalInstance != null)
+                {
+                    proxy = _proxyHost.RegisterLocalProxy(proxy);
+
+                    proxyOwner = (byte)ProxyOwner.Remote; // We own the proxy, but for the remote end, this is a remote proxy.
+                }
+                else
+                {
+                    proxyOwner = (byte)ProxyOwner.Local;
+                }
+
+                var expectedType = typeof(Proxy<>).MakeGenericType(remoteType);
+
+                for (var current = obj.GetType(); current != typeof(object); current = current.BaseType)
+                {
+                    if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(TransparentProxy<>))
+                    {
+                        expectedType = current.GetGenericArguments()[0];
+                    }
+                }
+
+                info.AddValue("proxyOwner", proxyOwner);
+                info.AddValue("id", proxy.Id);
+                info.AddValue("objectType", (proxy.LocalInstance?.GetType() ?? remoteType).AssemblyQualifiedName);
+                info.AddValue("expectedType", expectedType.AssemblyQualifiedName);
+                info.SetType(typeof(Proxy<>).MakeGenericType(remoteType));
+            }
+
+            public object SetObjectData(object obj, SerializationInfo info, StreamingContext context, ISurrogateSelector selector)
+            {
+                var remoteType = info.ObjectType.GetGenericArguments()[0];
+                var proxyOwner = (ProxyOwner)info.GetByte("proxyOwner");
+                var id = info.GetInt32("id");
+                var objectType = LoadTypeIgnoringVersion(info.GetString("objectType"));
+                var expectedType = LoadTypeIgnoringVersion(info.GetString("expectedType"));
+
+                return _proxyHost.DeserializeProxy(expectedType, proxyOwner, remoteType, objectType, id);
+            }
+        }
+
+        private sealed class CancellationTokenSurrogate : ISerializationSurrogate
+        {
+            private readonly ProxyHost _proxyHost;
+            private readonly Dictionary<int, CancellationTokenSource> _cancellationTokenSources;
+            private readonly List<CancellationToken> _cancellationTokens;
+
+            public CancellationTokenSurrogate(
+                ProxyHost proxyHost,
+                Dictionary<int, CancellationTokenSource> cancellationTokenSources,
+                List<CancellationToken> cancellationTokens)
+            {
+                Debug.Assert(proxyHost != null);
+
+                _proxyHost = proxyHost;
+                _cancellationTokenSources = cancellationTokenSources;
+                _cancellationTokens = cancellationTokens;
+            }
+
+            public void GetObjectData(object obj, SerializationInfo info, StreamingContext context)
+            {
+                Debug.Assert(obj is CancellationToken);
+                var id = SerializeCancellationToken(_cancellationTokens, (CancellationToken)obj);
+                info.AddValue("id", id);
+            }
+
+            public object SetObjectData(object obj, SerializationInfo info, StreamingContext context, ISurrogateSelector selector)
+            {
+                var id = info.GetInt32("id");
+                return DeserializeCancellationToken(id, _cancellationTokenSources);
+            }
         }
     }
 }
