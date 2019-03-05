@@ -1,3 +1,31 @@
+/* License
+ * --------------------------------------------------------------------------------------------------------------------
+ * This file is part of the AI4E distribution.
+ *   (https://github.com/AI4E/AI4E.Utils)
+ * Copyright (c) 2018-2019 Andreas Truetschel and contributors.
+ * 
+ * MIT License
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * --------------------------------------------------------------------------------------------------------------------
+ */
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +60,36 @@ namespace AI4E.Utils.Proxying.Test.TestTypes
         public IValue Proxy { get; set; }
     }
 
-    public class ComplexTypeStub
+    [Serializable]
+    public class ComplexTypeStubBackReference
+    {
+        public string ABC { get; set; }
+        public IProxy<ComplexTypeStub> Proxy { get; set; }
+    }
+
+    [Serializable]
+    public class ComplexTypeStubTransparentBackReference
+    {
+        public string ABC { get; set; }
+        public IComplexTypeStub Proxy { get; set; }
+    }
+
+    public interface IComplexTypeStub
+    {
+        CancellationToken Cancellation { get; }
+        TaskCompletionSource<object> TaskCompletionSource { get; set; }
+
+        ComplexType Echo(ComplexType complexType);
+        ComplexTypeWithProxy GetComplexTypeWithProxy();
+        ComplexTypeWithTransparentProxy GetComplexTypeWithTransparentProxy();
+        int GetValue(ComplexTypeWithTransparentProxy complexType);
+        Task<int> GetValueAsync(ComplexTypeWithProxy complexType);
+        Task OperateAsync(ComplexTypeWithCancellationToken complexType);
+        ComplexTypeStubBackReference GetComplexObjectWithBackReference();
+        ComplexTypeStubTransparentBackReference GetComplexObjectWithTransparentBackReference();
+    }
+
+    public class ComplexTypeStub : IComplexTypeStub
     {
         public ComplexType Echo(ComplexType complexType)
         {
@@ -80,5 +137,22 @@ namespace AI4E.Utils.Proxying.Test.TestTypes
             };
         }
 
+        public ComplexTypeStubBackReference GetComplexObjectWithBackReference()
+        {
+            return new ComplexTypeStubBackReference
+            {
+                ABC = "DEF",
+                Proxy = ProxyHost.CreateProxy(this)
+            };
+        }
+
+        public ComplexTypeStubTransparentBackReference GetComplexObjectWithTransparentBackReference()
+        {
+            return new ComplexTypeStubTransparentBackReference
+            {
+                ABC = "DEF",
+                Proxy = this // Do NOT wrap this in a transparent proxy. As the current instance is alread registered in the ProxyHost, this must be done automatically.
+            };
+        }
     }
 }

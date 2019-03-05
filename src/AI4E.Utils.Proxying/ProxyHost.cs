@@ -1437,10 +1437,9 @@ namespace AI4E.Utils.Proxying
 
                     break;
 
-                case object _ when objType.IsInterface && !objType.IsSerializable:
-                    var createdProxy = CreateProxy(obj.GetType(), obj, ownsInstance: false);
+                case object _ when objType.IsInterface && !obj.GetType().IsSerializable && LocalProxyRegistered(obj, out var existingProxy):
                     writer.Write((byte)TypeCode.Proxy);
-                    SerializeProxy(writer, createdProxy);
+                    SerializeProxy(writer, existingProxy);
                     break;
 
                 default:
@@ -1448,6 +1447,14 @@ namespace AI4E.Utils.Proxying
                     writer.Flush();
                     GetBinaryFormatter(null, cancellationTokens).Serialize(writer.BaseStream, obj);
                     break;
+            }
+        }
+
+        private bool LocalProxyRegistered(object obj, out IProxyInternal proxy)
+        {
+            lock (_proxyLock)
+            {
+                return _proxyLookup.TryGetValue(obj, out proxy);
             }
         }
 
@@ -1683,24 +1690,31 @@ namespace AI4E.Utils.Proxying
                 Dictionary<int, CancellationTokenSource> cancellationTokenSources,
                 List<CancellationToken> cancellationTokens)
         {
-            var selector = new SurrogateSelector();
+            var selector = new FallbackSurrogateSelector(this);
+
+            HashSet<Type> transparentProxyTypes;
+
+            lock (_loadedTransparentProxyTypesMutex)
+            {
+                transparentProxyTypes = _loadedTransparentProxyTypes.ToHashSet();
+            }
 
             var proxySurrogate = new ProxySurrogate(this);
             foreach (var remoteType in _loadedRemoteTypes) // Volatile read op.
             {
                 selector.AddSurrogate(typeof(Proxy<>).MakeGenericType(remoteType), new StreamingContext(), proxySurrogate);
+
+                var interfaces = remoteType.GetInterfaces();
+
+                foreach (var @interface in interfaces)
+                {
+                    transparentProxyTypes.Add(@interface);
+                }
             }
 
-            ImmutableList<Type> loadedTransparentProxyTypes;
-
-            lock (_loadedTransparentProxyTypesMutex)
+            foreach (var transparentProxyType in transparentProxyTypes) // Volatile read op.
             {
-                loadedTransparentProxyTypes = _loadedTransparentProxyTypes.ToImmutableList();
-            }
-
-            foreach (var transparentProxyTypes in loadedTransparentProxyTypes) // Volatile read op.
-            {
-                selector.AddSurrogate(transparentProxyTypes, new StreamingContext(), proxySurrogate);
+                selector.AddSurrogate(transparentProxyType, new StreamingContext(), proxySurrogate);
             }
 
             var cancellationTokenSurrogate = new CancellationTokenSurrogate(this, cancellationTokenSources, cancellationTokens);
@@ -1770,9 +1784,10 @@ namespace AI4E.Utils.Proxying
 
             public void GetObjectData(object obj, SerializationInfo info, StreamingContext context)
             {
-                Debug.Assert(obj is IProxyInternal);
-
-                var proxy = obj as IProxyInternal;
+                if (!(obj is IProxyInternal proxy) && !_proxyHost.LocalProxyRegistered(obj, out proxy))
+                {
+                    throw new SerializationException("Type " + obj.GetType() + " cannot be serialized.");
+                }
 
                 var remoteType = proxy.RemoteType;
                 byte proxyOwner;
@@ -1788,7 +1803,7 @@ namespace AI4E.Utils.Proxying
                     proxyOwner = (byte)ProxyOwner.Local;
                 }
 
-                var expectedType = typeof(Proxy<>).MakeGenericType(remoteType);
+                var expectedType = obj is IProxyInternal ? typeof(Proxy<>).MakeGenericType(remoteType) : remoteType;
 
                 for (var current = obj.GetType(); current != typeof(object); current = current.BaseType)
                 {
@@ -1846,6 +1861,29 @@ namespace AI4E.Utils.Proxying
             {
                 var id = info.GetInt32("id");
                 return DeserializeCancellationToken(id, _cancellationTokenSources);
+            }
+        }
+
+        private sealed class FallbackSurrogateSelector : SurrogateSelector
+        {
+            private readonly ProxyHost _proxyHost;
+
+            public FallbackSurrogateSelector(ProxyHost proxyHost)
+            {
+                Debug.Assert(proxyHost != null);
+                _proxyHost = proxyHost;
+            }
+
+            public override ISerializationSurrogate GetSurrogate(Type type, StreamingContext context, out ISurrogateSelector selector)
+            {
+                var surrogate = base.GetSurrogate(type, context, out selector);
+
+                if (surrogate == null && !type.IsSerializable)
+                {
+                    return new ProxySurrogate(_proxyHost);
+                }
+
+                return surrogate;
             }
         }
     }

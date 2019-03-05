@@ -752,8 +752,8 @@ namespace AI4E.Utils.Proxying.Test
 
                 var fooProxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
                 var value = new Value(7);
-
-                var result = await fooProxy.ExecuteAsync(foo => foo.ReadValueAsync((IValue)value));
+                var transparentProxy = ProxyHost.CreateProxy(value).Cast<IValue>().AsTransparentProxy();
+                var result = await fooProxy.ExecuteAsync(foo => foo.ReadValueAsync(transparentProxy));
 
                 Assert.AreEqual(7, result);
             }
@@ -927,6 +927,44 @@ namespace AI4E.Utils.Proxying.Test
                 var result = complexType.Proxy.GetValue();
 
                 Assert.AreEqual(23, result);
+            }
+        }
+
+        [TestMethod]
+        public async Task NonDuplicatedProxyOnBackReferenceTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<ComplexTypeStub>(cancellation: default);
+                var complexType = await proxy.ExecuteAsync(p => p.GetComplexObjectWithBackReference());
+
+                Assert.AreSame(proxy, complexType.Proxy);
+            }
+        }
+
+        [TestMethod]
+        public async Task NonDuplicatedProxyOnTransparentBackReferenceTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider(services => services.AddTransient<IComplexTypeStub, ComplexTypeStub>()));
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.LoadAsync<IComplexTypeStub>(cancellation: default);
+                var complexType = await proxy.ExecuteAsync(p => p.GetComplexObjectWithTransparentBackReference());
+                var result = complexType.Proxy;
+
+                Assert.IsInstanceOfType(result, typeof(TransparentProxy<IComplexTypeStub>));
+                Assert.AreSame(proxy, (result as TransparentProxy<IComplexTypeStub>).Proxy);
             }
         }
 
