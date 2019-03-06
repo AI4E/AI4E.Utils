@@ -26,14 +26,26 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.Threading.Tasks;
-
-namespace AI4E.Utils
+namespace System.Threading.Tasks
 {
+    /// <summary>
+    /// Contains extensions for the <see cref="TaskCompletionSource{TResult}"/> type.
+    /// </summary>
     public static class TaskCompletionSourceExtension
     {
-        public static bool TrySetExceptionOrCancelled<T>(this TaskCompletionSource<T> taskCompletionSource, Exception exception)
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="Task{TResult}"/> object
+        /// into the <see cref="TaskStatus.Faulted"/> or <see cref="TaskStatus.Canceled"/> state,
+        /// depending on the type of exception.
+        /// </summary>
+        /// <typeparam name="TResult">The type of the result value associated with the <see cref="TaskCompletionSource{TResult}"/>.</typeparam>
+        /// <param name="taskCompletionSource">The task completion source.</param>
+        /// <param name="exception">The exception to bind to the <see cref="Task{TResult}"/>.</param>
+        /// <returns>True if the operation was succesful, false otherwise.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if any of <paramref name="taskCompletionSource"/> or <paramref name="exception"/> is <c>null</c>.
+        /// </exception>
+        public static bool TrySetExceptionOrCancelled<TResult>(this TaskCompletionSource<TResult> taskCompletionSource, Exception exception)
         {
             if (taskCompletionSource == null)
                 throw new ArgumentNullException(nameof(taskCompletionSource));
@@ -54,6 +66,29 @@ namespace AI4E.Utils
             }
 
             return taskCompletionSource.TrySetException(exception);
+        }
+
+        /// <summary>
+        /// Transitions the underlying <see cref="Task{TResult}"/> object
+        /// into the <see cref="TaskStatus.Faulted"/> or <see cref="TaskStatus.Canceled"/> state,
+        /// depending on the type of exception.
+        /// </summary>
+        /// <typeparam name="TResult">The type of the result value associated with the <see cref="TaskCompletionSource{TResult}"/>.</typeparam>
+        /// <param name="taskCompletionSource">The task completion source.</param>
+        /// <param name="exception">The exception to bind to the <see cref="Task{TResult}"/>.</param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if any of <paramref name="taskCompletionSource"/> or <paramref name="exception"/> is <c>null</c>.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The <see cref="Task{TResult}"/> is already in one of the three final states:
+        /// <see cref="TaskStatus.RanToCompletion"/>, <see cref="TaskStatus.Faulted"/>, or <see cref="TaskStatus.Canceled"/>.
+        /// </exception>
+        public static void SetExceptionOrCancelled<TResult>(this TaskCompletionSource<TResult> taskCompletionSource, Exception exception)
+        {
+            if (!TrySetExceptionOrCancelled(taskCompletionSource, exception))
+            {
+                throw new InvalidOperationException("The underlying Task<TResult> is already in one of the three final states: RanToCompletion, Faulted, or Canceled.");
+            }
         }
     }
 }
