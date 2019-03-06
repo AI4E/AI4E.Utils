@@ -30,10 +30,22 @@ using System.Reflection;
 
 namespace System.Linq.Expressions
 {
+    /// <summary>
+    /// Contains extensions for <see cref="Expression"/>s.
+    /// </summary>
     public static class ExpressionExtension
     {
-        public static object GetExpressionValue(this Expression expression)
+        /// <summary>
+        /// Evaluates the specified expression and returns the result.
+        /// </summary>
+        /// <param name="expression">The expression to evaluate.</param>
+        /// <returns>The result of the expression evaluation.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="expression"/> is <c>null</c>.</exception>
+        public static object Evaluate(this Expression expression)
         {
+            if (expression == null)
+                throw new ArgumentNullException(nameof(expression));
+
             if (expression is ConstantExpression constant)
             {
                 return constant.Value;
@@ -46,8 +58,6 @@ namespace System.Linq.Expressions
                 {
                     return field.GetValue(fieldOwner.Value);
                 }
-
-                // TODO
             }
 
             var valueFactory = Expression.Lambda<Func<object>>(Expression.Convert(expression, typeof(object))).Compile();

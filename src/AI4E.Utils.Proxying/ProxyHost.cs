@@ -992,7 +992,7 @@ namespace AI4E.Utils.Proxying
             if (expression is MethodCallExpression methodCallExpression)
             {
                 method = methodCallExpression.Method;
-                parameters = methodCallExpression.Arguments.Select(p => p.GetExpressionValue()).ToArray();
+                parameters = methodCallExpression.Arguments.Select(p => p.Evaluate()).ToArray();
             }
             else if (expression is MemberExpression memberExpression && memberExpression.Member is PropertyInfo property)
             {
