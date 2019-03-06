@@ -34,6 +34,7 @@ using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Sources;
+using Microsoft.Extensions.ObjectPool;
 
 namespace AI4E.Utils.Async
 {
@@ -314,21 +315,40 @@ namespace AI4E.Utils.Async
     // Based on: http://tooslowexception.com/implementing-custom-ivaluetasksource-async-without-allocations/
     internal sealed class ValueTaskSource<T> : IValueTaskSource<T>, IValueTaskSource
     {
+        /// Sentinel object used to indicate that the operation has completed prior to OnCompleted being called.
+        private static readonly Action<object> _callbackCompleted = _ => { Debug.Assert(false, "Should not be invoked"); };
+
         #region Pooling
 
-        private static readonly ObjectPool<ValueTaskSource<T>> _pool = CreatePool();
-        private static readonly ObjectPool<SynchronizationContextPostState> _synchronizationContextPostStatePool = ObjectPool.Create<SynchronizationContextPostState>();
-        private static readonly ObjectPool<ExecutionContextRunState> _executionContextRunStatePool = ObjectPool.Create<ExecutionContextRunState>();
-
-        private static ObjectPool<ValueTaskSource<T>> CreatePool()
+        static ValueTaskSource()
         {
-            return ObjectPool.Create<ValueTaskSource<T>>(isReusable: p => !p.Exhausted, size: ObjectPool.DefaultSize);
+            _pool = new DefaultObjectPool<ValueTaskSource<T>>(ValueTaskSourcePooledObjectPolicy.Instance);
+            _synchronizationContextPostStatePool = new DefaultObjectPool<SynchronizationContextPostState>(new DefaultPooledObjectPolicy<SynchronizationContextPostState>());
+            _executionContextRunStatePool = new DefaultObjectPool<ExecutionContextRunState>(new DefaultPooledObjectPolicy<ExecutionContextRunState>());
+        }
+
+        private static readonly ObjectPool<ValueTaskSource<T>> _pool;
+        private static readonly ObjectPool<SynchronizationContextPostState> _synchronizationContextPostStatePool;
+        private static readonly ObjectPool<ExecutionContextRunState> _executionContextRunStatePool;
+
+        private sealed class ValueTaskSourcePooledObjectPolicy : PooledObjectPolicy<ValueTaskSource<T>>
+        {
+            public static ValueTaskSourcePooledObjectPolicy Instance { get; } = new ValueTaskSourcePooledObjectPolicy();
+
+            private ValueTaskSourcePooledObjectPolicy() { }
+
+            public override ValueTaskSource<T> Create()
+            {
+                return new ValueTaskSource<T>();
+            }
+
+            public override bool Return(ValueTaskSource<T> obj)
+            {
+                return !obj.Exhausted;
+            }
         }
 
         #endregion
-
-        /// Sentinel object used to indicate that the operation has completed prior to OnCompleted being called.
-        private static readonly Action<object> _callbackCompleted = _ => { Debug.Assert(false, "Should not be invoked"); };
 
         private State _state;
 
@@ -337,7 +357,7 @@ namespace AI4E.Utils.Async
 
         internal static ValueTaskSource<T> Allocate()
         {
-            var result = _pool.Rent();
+            var result = _pool.Get();
             Debug.Assert(!result.Exhausted);
             Debug.Assert(result._state._continuation == default);
             Debug.Assert(EqualityComparer<T>.Default.Equals(result._state._result, default));
@@ -427,7 +447,7 @@ namespace AI4E.Utils.Async
                     // explicitly uses the awaiter's OnCompleted instead.
                     _state._executionContext = null;
 
-                    var executionContextRunState = _executionContextRunStatePool.Rent();
+                    var executionContextRunState = _executionContextRunStatePool.Get();
                     executionContextRunState.ValueTaskSource = this;
                     executionContextRunState.PreviousContinuation = previousContinuation;
                     executionContextRunState.State = _state._continuationState;
@@ -576,7 +596,7 @@ namespace AI4E.Utils.Async
             {
                 if (_state._scheduler is SynchronizationContext synchronizationContext)
                 {
-                    var synchronizationContextPostState = _synchronizationContextPostStatePool.Rent();
+                    var synchronizationContextPostState = _synchronizationContextPostStatePool.Get();
                     synchronizationContextPostState.Continuation = continuation;
                     synchronizationContextPostState.State = state;
 

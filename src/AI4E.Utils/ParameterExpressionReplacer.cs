@@ -28,6 +28,7 @@
 
 using System;
 using System.Linq.Expressions;
+using Microsoft.Extensions.ObjectPool;
 using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils
@@ -38,7 +39,7 @@ namespace AI4E.Utils
 
         static ParameterExpressionReplacer()
         {
-            _pool = new ObjectPool<ReplacerExpressionVisitor>(() => new ReplacerExpressionVisitor());
+            _pool = new DefaultObjectPool<ReplacerExpressionVisitor>(new DefaultPooledObjectPolicy<ReplacerExpressionVisitor>());
         }
 
         public static Expression ReplaceParameter(Expression expression, ParameterExpression parameter, Expression replacement)
@@ -52,7 +53,7 @@ namespace AI4E.Utils
             if (replacement == null)
                 throw new ArgumentNullException(nameof(replacement));
 
-            using (_pool.Rent(out var replaceExpressionVisitor))
+            using (_pool.Get(out var replaceExpressionVisitor))
             {
                 replaceExpressionVisitor.SetExpressions(parameter, replacement);
                 return replaceExpressionVisitor.Visit(expression);

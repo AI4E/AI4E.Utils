@@ -31,7 +31,7 @@ using System.Reflection;
 namespace System.Linq.Expressions
 {
     /// <summary>
-    /// Contains extensions for <see cref="Expression"/>s.
+    /// Contains extensions for the <see cref="Expression"/> type.
     /// </summary>
     public static class ExpressionExtension
     {
