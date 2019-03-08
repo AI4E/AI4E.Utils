@@ -195,7 +195,7 @@ namespace AI4E.Utils.Proxying.Test
             var instance = new Foo();
             var transparentProxy = ProxyHost.CreateProxy(instance).Cast<IFoo>().AsTransparentProxy();
 
-            Assert.AreSame(instance, ((ProxyHost.IProxyInternal)transparentProxy).LocalInstance);
+            Assert.AreSame(instance, ((IProxyInternal)transparentProxy).LocalInstance);
         }
 
         [TestMethod]
@@ -253,7 +253,7 @@ namespace AI4E.Utils.Proxying.Test
                 GC.WaitForPendingFinalizers();
 
                 // The remote proxy must be unregistered.
-                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
+                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxyInternal)remoteProxy));
 
                 // The remote proxy must be disposed.
                 Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -288,7 +288,7 @@ namespace AI4E.Utils.Proxying.Test
                 GC.WaitForPendingFinalizers();
 
                 // The remote proxy must be unregistered.
-                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
+                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxyInternal)remoteProxy));
 
                 // The remote proxy must be disposed.
                 Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -323,7 +323,7 @@ namespace AI4E.Utils.Proxying.Test
                 GC.WaitForPendingFinalizers();
 
                 // The remote proxy must be unregistered.
-                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
+                Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxyInternal)remoteProxy));
 
                 // The remote proxy must be disposed.
                 Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -362,7 +362,7 @@ namespace AI4E.Utils.Proxying.Test
             await Task.Delay(50);
 
             // The remote proxy must be unregistered.
-            Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((ProxyHost.IProxyInternal)remoteProxy));
+            Assert.IsFalse(remoteProxyHost.LocalProxies.Contains((IProxyInternal)remoteProxy));
 
             // The remote proxy must be disposed.
             Assert.IsTrue(remoteProxy.Disposal.Status == TaskStatus.RanToCompletion);
@@ -541,7 +541,7 @@ namespace AI4E.Utils.Proxying.Test
         {
             var instance = new Foo();
             var proxy = ProxyHost.CreateProxy(instance);
-            var castProxy = (ProxyHost.CastProxy<Foo, object>)proxy.Cast<object>();
+            var castProxy = (CastProxy<Foo, object>)proxy.Cast<object>();
 
             Assert.AreSame(proxy, castProxy.Original);
             Assert.AreEqual(proxy.Id, castProxy.Id);
@@ -555,7 +555,7 @@ namespace AI4E.Utils.Proxying.Test
         {
             var instance = new Foo();
             var proxy = ProxyHost.CreateProxy<object>(instance);
-            var castProxy = (ProxyHost.CastProxy<object, Foo>)proxy.Cast<Foo>();
+            var castProxy = (CastProxy<object, Foo>)proxy.Cast<Foo>();
 
             Assert.AreSame(proxy, castProxy.Original);
             Assert.AreEqual(proxy.Id, castProxy.Id);
@@ -577,7 +577,7 @@ namespace AI4E.Utils.Proxying.Test
 
                 var proxy = await localProxyHost.CreateAsync<Foo>(cancellation: default);
 
-                var castProxy = (ProxyHost.CastProxy<Foo, object>)proxy.Cast<object>();
+                var castProxy = (CastProxy<Foo, object>)proxy.Cast<object>();
 
                 Assert.AreSame(proxy, castProxy.Original);
                 Assert.AreEqual(proxy.Id, castProxy.Id);
@@ -604,7 +604,7 @@ namespace AI4E.Utils.Proxying.Test
 
                 var proxy = await localProxyHost.LoadAsync<IFoo>(cancellation: default);
 
-                var castProxy = (ProxyHost.CastProxy<IFoo, Foo>)proxy.Cast<Foo>();
+                var castProxy = (CastProxy<IFoo, Foo>)proxy.Cast<Foo>();
 
                 Assert.AreSame(proxy, castProxy.Original);
                 Assert.AreEqual(proxy.Id, castProxy.Id);
@@ -632,7 +632,7 @@ namespace AI4E.Utils.Proxying.Test
             var instance = new Foo();
             var proxy = ProxyHost.CreateProxy(instance);
             var castProxy = proxy.Cast<IFoo>();
-            var castAgainProxy = (ProxyHost.CastProxy<Foo, object>)castProxy.Cast<object>();
+            var castAgainProxy = (CastProxy<Foo, object>)castProxy.Cast<object>();
 
             Assert.AreSame(proxy, castAgainProxy.Original);
             Assert.AreEqual(proxy.Id, castAgainProxy.Id);

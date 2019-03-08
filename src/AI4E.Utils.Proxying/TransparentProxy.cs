@@ -37,22 +37,22 @@ namespace AI4E.Utils.Proxying
     /// A base type for transparent proxies. This type is not meant to be used directly.
     /// </summary>
     /// <typeparam name="T">The type of dynamic proxy instance.</typeparam>
-    public class TransparentProxy<T> : DispatchProxy, ProxyHost.IProxyInternal
+    public class TransparentProxy<T> : DispatchProxy, IProxyInternal
             where T : class
     {
-        internal ProxyHost.IProxyInternal Proxy { get; private set; }
+        internal IProxyInternal Proxy { get; private set; }
 
         #region IProxyInternal
 
-        object ProxyHost.IProxyInternal.LocalInstance => Proxy.LocalInstance;
+        object IProxyInternal.LocalInstance => Proxy.LocalInstance;
 
-        Type ProxyHost.IProxyInternal.RemoteType => Proxy.RemoteType;
-        Type ProxyHost.IProxyInternal.ObjectType => Proxy.ObjectType;
-        int ProxyHost.IProxyInternal.Id => Proxy.Id;
+        Type IProxyInternal.RemoteType => Proxy.RemoteType;
+        Type IProxyInternal.ObjectType => Proxy.ObjectType;
+        int IProxyInternal.Id => Proxy.Id;
 
-        void ProxyHost.IProxyInternal.Register(ProxyHost host, int proxyId, Action unregisterAction) => Proxy.Register(host, proxyId, unregisterAction);
+        void IProxyInternal.Register(ProxyHost host, int proxyId, Action unregisterAction) => Proxy.Register(host, proxyId, unregisterAction);
 
-        Task<object> ProxyHost.IProxyInternal.ExecuteAsync(MethodInfo method, object[] args) => Proxy.ExecuteAsync(method, args);
+        Task<object> IProxyInternal.ExecuteAsync(MethodInfo method, object[] args) => Proxy.ExecuteAsync(method, args);
 
         void IDisposable.Dispose()
         {
@@ -105,12 +105,12 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        private void Configure(ProxyHost.IProxyInternal proxy)
+        private void Configure(IProxyInternal proxy)
         {
             Proxy = proxy;
         }
 
-        internal static T Create(ProxyHost.IProxyInternal proxy)
+        internal static T Create(IProxyInternal proxy)
         {
             object transparentProxy = Create<T, TransparentProxy<T>>();
 
