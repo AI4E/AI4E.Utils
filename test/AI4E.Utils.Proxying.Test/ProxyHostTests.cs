@@ -537,7 +537,7 @@ namespace AI4E.Utils.Proxying.Test
         }
 
         [TestMethod]
-        public void DowncastLocalProxyTest()
+        public async Task DowncastLocalProxyTest()
         {
             var instance = new Foo();
             var proxy = ProxyHost.CreateProxy(instance);
@@ -545,7 +545,7 @@ namespace AI4E.Utils.Proxying.Test
 
             Assert.AreSame(proxy, castProxy.Original);
             Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
-            Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
+            Assert.AreEqual(await proxy.GetObjectTypeAsync(), await castProxy.GetObjectTypeAsync(default));
             Assert.AreSame(proxy.LocalInstance, castProxy.LocalInstance);
             Assert.AreEqual(typeof(object), castProxy.RemoteType);
         }
@@ -555,13 +555,11 @@ namespace AI4E.Utils.Proxying.Test
         {
             var instance = new Foo();
             var proxy = ProxyHost.CreateProxy<object>(instance);
-            var castProxy = (CastProxy<object, Foo>)proxy.Cast<Foo>();
 
-            Assert.AreSame(proxy, castProxy.Original);
-            Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
-            Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
-            Assert.AreSame(proxy.LocalInstance, castProxy.LocalInstance);
-            Assert.AreEqual(typeof(Foo), castProxy.RemoteType);
+            Assert.ThrowsException<ArgumentException>(() =>
+            {
+                proxy.Cast<Foo>();
+            });
         }
 
         [TestMethod]
@@ -581,7 +579,7 @@ namespace AI4E.Utils.Proxying.Test
 
                 Assert.AreSame(proxy, castProxy.Original);
                 Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
-                Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
+                Assert.AreEqual(await proxy.GetObjectTypeAsync(default), await castProxy.GetObjectTypeAsync(default));
                 Assert.IsNull(castProxy.LocalInstance);
                 Assert.AreEqual(typeof(object), castProxy.RemoteType);
             }
@@ -604,13 +602,10 @@ namespace AI4E.Utils.Proxying.Test
 
                 var proxy = await localProxyHost.LoadAsync<IFoo>(cancellation: default);
 
-                var castProxy = (CastProxy<IFoo, Foo>)proxy.Cast<Foo>();
-
-                Assert.AreSame(proxy, castProxy.Original);
-                Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
-                Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
-                Assert.IsNull(castProxy.LocalInstance);
-                Assert.AreEqual(typeof(Foo), castProxy.RemoteType);
+                Assert.ThrowsException<ArgumentException>(() =>
+                {
+                    proxy.Cast<Foo>();
+                });
             }
         }
 
@@ -627,7 +622,7 @@ namespace AI4E.Utils.Proxying.Test
         }
 
         [TestMethod]
-        public void CastProxyAgainTest()
+        public async Task CastProxyAgainTest()
         {
             var instance = new Foo();
             var proxy = ProxyHost.CreateProxy(instance);
@@ -636,7 +631,7 @@ namespace AI4E.Utils.Proxying.Test
 
             Assert.AreSame(proxy, castAgainProxy.Original);
             Assert.AreEqual(((IProxyInternal)proxy).Id, castAgainProxy.Id);
-            Assert.AreEqual(proxy.ObjectType, castAgainProxy.ObjectType);
+            Assert.AreEqual(await proxy.GetObjectTypeAsync(default), await castAgainProxy.GetObjectTypeAsync(default));
             Assert.AreSame(proxy.LocalInstance, castAgainProxy.LocalInstance);
             Assert.AreEqual(typeof(object), castAgainProxy.RemoteType);
         }

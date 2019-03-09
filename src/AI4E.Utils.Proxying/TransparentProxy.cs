@@ -28,6 +28,7 @@
 
 using System;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using AI4E.Utils.Async;
 
@@ -45,14 +46,23 @@ namespace AI4E.Utils.Proxying
         #region IProxyInternal
 
         object IProxyInternal.LocalInstance => Proxy.LocalInstance;
-
         Type IProxyInternal.RemoteType => Proxy.RemoteType;
-        Type IProxyInternal.ObjectType => Proxy.ObjectType;
         int IProxyInternal.Id => Proxy.Id;
 
-        void IProxyInternal.Register(ProxyHost host, int proxyId, Action unregisterAction) => Proxy.Register(host, proxyId, unregisterAction);
+        ValueTask<Type> IProxyInternal.GetObjectTypeAsync(CancellationToken cancellation)
+        {
+            return Proxy.GetObjectTypeAsync(cancellation);
+        }
 
-        Task<object> IProxyInternal.ExecuteAsync(MethodInfo method, object[] args) => Proxy.ExecuteAsync(method, args);
+        void IProxyInternal.Register(ProxyHost host, int proxyId, Action unregisterAction)
+        {
+            Proxy.Register(host, proxyId, unregisterAction);
+        }
+
+        Task<object> IProxyInternal.ExecuteAsync(MethodInfo method, object[] args)
+        {
+            return Proxy.ExecuteAsync(method, args);
+        }
 
         void IDisposable.Dispose()
         {

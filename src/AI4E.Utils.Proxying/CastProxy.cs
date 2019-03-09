@@ -1,4 +1,4 @@
-﻿/* License
+/* License
  * --------------------------------------------------------------------------------------------------------------------
  * This file is part of the AI4E distribution.
  *   (https://github.com/AI4E/AI4E.Utils)
@@ -29,6 +29,7 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AI4E.Utils.Proxying
@@ -46,7 +47,10 @@ namespace AI4E.Utils.Proxying
 
         object IProxy.LocalInstance => LocalInstance;
 
-        public Type ObjectType => Original.ObjectType;
+        public ValueTask<Type> GetObjectTypeAsync(CancellationToken cancellation)
+        {
+            return Original.GetObjectTypeAsync(cancellation);
+        }
 
         public Type RemoteType => typeof(TCast);
 

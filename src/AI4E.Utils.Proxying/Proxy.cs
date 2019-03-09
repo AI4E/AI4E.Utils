@@ -30,6 +30,7 @@ using System;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using AI4E.Utils.Async;
 
@@ -76,7 +77,15 @@ namespace AI4E.Utils.Proxying
         internal bool IsRemoteProxy => LocalInstance == null;
         public Type RemoteType => typeof(TRemote);
 
-        public Type ObjectType => IsRemoteProxy ? _objectType : LocalInstance.GetType();
+        public ValueTask<Type> GetObjectTypeAsync(CancellationToken cancellation)
+        {
+            if(!IsRemoteProxy)
+            {
+                return new ValueTask<Type>(LocalInstance.GetType());
+            }
+
+            return new ValueTask<Type>(_objectType);
+        }
 
         public int Id { get; private set; }
 
@@ -251,8 +260,8 @@ namespace AI4E.Utils.Proxying
         public IProxy<TCast> Cast<TCast>()
             where TCast : class
         {
-            if (!typeof(TCast).IsAssignableFrom(ObjectType))
-                throw new ArgumentException($"Unable to cast the proxy. The type {ObjectType} cannot be cast to type {typeof(TCast)}.");
+            if (!typeof(TCast).IsAssignableFrom(RemoteType))
+                throw new ArgumentException($"Unable to cast the proxy. The type {RemoteType} cannot be cast to type {typeof(TCast)}.");
 
             return new CastProxy<TRemote, TCast>(this);
         }

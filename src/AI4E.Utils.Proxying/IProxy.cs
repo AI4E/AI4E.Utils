@@ -28,6 +28,7 @@
 
 using System;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using AI4E.Utils.Async;
 
@@ -49,9 +50,14 @@ namespace AI4E.Utils.Proxying
         Type RemoteType { get; }
 
         /// <summary>
-        /// Gets the dynamic type of the proxied instance.
+        /// Asynchronously returns the dynamic type of the proxied instance.
         /// </summary>
-        Type ObjectType { get; }
+        /// <param name="cancellation">A <see cref="CancellationToken"/> used to cancel the asynchronous operation or <see cref="CancellationToken.None"/>.</param>
+        /// <returns>
+        /// A <see cref="ValueTask{Type}"/> that represents the asynchronous operation.
+        /// When evaluated, the tasks result contains the dynamic type of the proxied instance.
+        /// </returns>
+        ValueTask<Type> GetObjectTypeAsync(CancellationToken cancellation = default);
 
         /// <summary>
         /// Casts the proxy to a proxy with the specified remote type.
