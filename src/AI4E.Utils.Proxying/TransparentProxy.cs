@@ -49,6 +49,15 @@ namespace AI4E.Utils.Proxying
         Type IProxyInternal.RemoteType => Proxy.RemoteType;
         int IProxyInternal.Id => Proxy.Id;
 
+        ActivationMode IProxyInternal.ActivationMode => Proxy.ActivationMode;
+        object[] IProxyInternal.ActivationParamers => Proxy.ActivationParamers;
+        bool IProxyInternal.IsActivated => Proxy.IsActivated;
+
+        void IProxyInternal.Activate(Type objectType)
+        {
+            Proxy.Activate(objectType);
+        }
+
         ValueTask<Type> IProxyInternal.GetObjectTypeAsync(CancellationToken cancellation)
         {
             return Proxy.GetObjectTypeAsync(cancellation);

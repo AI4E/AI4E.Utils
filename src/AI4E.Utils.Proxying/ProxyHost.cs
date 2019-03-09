@@ -134,16 +134,60 @@ namespace AI4E.Utils.Proxying
             return ActivateAsync<TRemote>(ActivationMode.Load, parameter: null, cancellation);
         }
 
-        internal async Task<IProxy<TRemote>> ActivateAsync<TRemote>(ActivationMode mode, object[] parameter, CancellationToken cancellation)
+        /// <inheritdoc />
+        public IProxy<TRemote> Create<TRemote>(object[] parameter)
+            where TRemote : class
+        {
+            var proxy = new Proxy<TRemote>(this, GenerateRemoteProxyId(), ActivationMode.Create, parameter);
+
+            lock (_remoteProxiesMutex)
+            {
+                _remoteProxies.Add(proxy.Id, proxy);
+            }
+
+            return proxy;
+        }
+
+        /// <inheritdoc />
+        public IProxy<TRemote> Create<TRemote>()
+            where TRemote : class
+        {
+            var proxy = new Proxy<TRemote>(this, GenerateRemoteProxyId(), ActivationMode.Create, activationParameters: null);
+
+            lock (_remoteProxiesMutex)
+            {
+                _remoteProxies.Add(proxy.Id, proxy);
+            }
+
+            return proxy;
+        }
+
+        /// <inheritdoc />
+        public IProxy<TRemote> Load<TRemote>()
+            where TRemote : class
+        {
+            var proxy = new Proxy<TRemote>(this, GenerateRemoteProxyId(), ActivationMode.Load, activationParameters: null);
+
+            lock (_remoteProxiesMutex)
+            {
+                _remoteProxies.Add(proxy.Id, proxy);
+            }
+
+            return proxy;
+        }
+
+        internal Task<IProxy<TRemote>> ActivateAsync<TRemote>(ActivationMode mode, object[] parameter, CancellationToken cancellation)
+            where TRemote : class
+        {
+            var id = GenerateRemoteProxyId();
+            return ActivateAsync<TRemote>(mode, parameter, id, cancellation);
+        }
+
+        internal async Task<IProxy<TRemote>> ActivateAsync<TRemote>(ActivationMode mode, object[] parameter, int id, CancellationToken cancellation)
             where TRemote : class
         {
             int seqNum;
             Task<IProxy<TRemote>> result;
-
-            var id = Interlocked.Increment(ref _nextRemoteProxyId);
-
-            // Ids for remote proxies we create must carry a one in the MSB to prevent id conflicts.
-            id = unchecked(id |-1);
 
             using (var stream = new MemoryStream())
             {
@@ -194,6 +238,16 @@ namespace AI4E.Utils.Proxying
                 }
             }
             catch (ObjectDisposedException) { }
+        }
+
+        private int GenerateRemoteProxyId()
+        {
+            var id = Interlocked.Increment(ref _nextRemoteProxyId);
+
+            // Ids for remote proxies we create must carry a one in the MSB to prevent id conflicts.
+            id = -id;
+
+            return id;
         }
 
         #endregion
@@ -478,13 +532,14 @@ namespace AI4E.Utils.Proxying
         {
             var result = default(object);
             var exception = default(Exception);
+            var activatedProxies = new List<(int id, Type objectType)>();
 
             try
             {
                 var id = reader.ReadInt32();
                 var mode = (ActivationMode)reader.ReadByte();
                 var type = ReadType(reader);
-                var parameter = Deserialize(reader, (ParameterInfo[])null, null).ToArray();
+                var parameter = Deserialize(reader, (ParameterInfo[])null, null, activatedProxies).ToArray();
                 var instance = default(object);
                 var ownsInstance = false;
 
@@ -510,7 +565,7 @@ namespace AI4E.Utils.Proxying
                 exception = exc;
             }
 
-            await SendResult(seqNum, result, result.GetType(), exception, waitTask: false, cancellation);
+            await SendResult(seqNum, result, result.GetType(), exception, waitTask: false, activatedProxies, cancellation);
         }
 
         private async Task ReceiveMethodCallAsync(BinaryReader reader, int seqNum, CancellationToken cancellation)
@@ -523,6 +578,7 @@ namespace AI4E.Utils.Proxying
             Type returnType = null;
 
             var cancellationTokenSources = new Dictionary<int, CancellationTokenSource>();
+            var activatedProxies = new List<(int id, Type objectType)>();
 
             lock (_cancellationTokenSourcesMutex)
             {
@@ -534,15 +590,46 @@ namespace AI4E.Utils.Proxying
                 try
                 {
                     var proxyId = reader.ReadInt32();
+                    var isActivated = reader.ReadBoolean();
+
+                    IProxyInternal proxy;
+
+                    if (isActivated)
+                    {
+                        if (!TryGetProxyById(proxyId, out proxy))
+                        {
+                            throw new Exception("Proxy not found."); // TODO
+                        }
+                    }
+                    else
+                    {
+                        var proxyType = LoadTypeIgnoringVersion(reader.ReadString());
+                        var mode = (ActivationMode)reader.ReadByte();
+                        var parameters = Deserialize(reader, (ParameterInfo[])null, null, activatedProxies).ToArray();
+
+                        object i;
+                        var ownsInstance = false;
+
+                        if (mode == ActivationMode.Create)
+                        {
+                            i = ActivatorUtilities.CreateInstance(_serviceProvider, proxyType, parameters);
+                            ownsInstance = true;
+                        }
+                        else // if (mode == ActivationMode.Load)
+                        {
+                            i = _serviceProvider.GetRequiredService(proxyType);
+                        }
+
+                        proxy = (IProxyInternal)Activator.CreateInstance(typeof(Proxy<>).MakeGenericType(proxyType), BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new[] { i, ownsInstance }, null);
+                        proxy = RegisterLocalProxy(proxy, proxyId);
+
+                        activatedProxies.Add((proxy.Id, proxy.LocalInstance.GetType()));
+                    }
+
                     waitTask = reader.ReadBoolean();
                     method = DeserializeMethod(reader);
 
-                    var arguments = Deserialize(reader, method.GetParameters(), cancellationTokenSources).ToArray();
-
-                    if (!TryGetProxyById(proxyId, out var proxy))
-                    {
-                        throw new Exception("Proxy not found."); // TODO
-                    }
+                    var arguments = Deserialize(reader, method.GetParameters(), cancellationTokenSources, activatedProxies).ToArray();
 
                     var instance = proxy.LocalInstance;
 
@@ -563,7 +650,7 @@ namespace AI4E.Utils.Proxying
                     exception = exc;
                 }
 
-                await SendResult(seqNum, result, returnType, exception, waitTask, cancellation);
+                await SendResult(seqNum, result, returnType, exception, waitTask, activatedProxies, cancellation);
             }
             finally
             {
@@ -577,10 +664,25 @@ namespace AI4E.Utils.Proxying
         private void ReceiveResult(MessageType messageType, BinaryReader reader)
         {
             var corr = reader.ReadInt32();
+            var activatedProxiesCount = reader.ReadInt32();
+
+            for (var i = 0; i < activatedProxiesCount; i++)
+            {
+                var id = reader.ReadInt32();
+                var objectType = LoadTypeIgnoringVersion(reader.ReadString());
+
+                lock (_remoteProxiesMutex)
+                {
+                    if (_remoteProxies.TryGetValue(id, out var proxy))
+                    {
+                        proxy.Activate(objectType);
+                    }
+                }
+            }
 
             if (_responseTable.TryRemove(corr, out var entry))
             {
-                var value = Deserialize(reader, expectedType: entry.resultType, null);
+                var value = Deserialize(reader, expectedType: entry.resultType, null, new List<(int id, Type objectType)>() { });
                 entry.callback(messageType, value);
             }
         }
@@ -618,6 +720,7 @@ namespace AI4E.Utils.Proxying
             Type resultType,
             Exception exception,
             bool waitTask,
+            List<(int id, Type objectType)> activatedProxies,
             CancellationToken cancellation)
         {
             if (exception == null && waitTask)
@@ -653,6 +756,14 @@ namespace AI4E.Utils.Proxying
                     writer.Write(seqNum);
                     writer.Write(corrNum);
 
+                    writer.Write(activatedProxies.Count);
+
+                    foreach (var (id, objectType) in activatedProxies)
+                    {
+                        writer.Write(id);
+                        writer.Write(objectType.AssemblyQualifiedName);
+                    }
+
                     if (exception != null)
                     {
                         Serialize(writer, exception, exception.GetType(), null);
@@ -668,7 +779,7 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        internal Task<TResult> SendMethodCallAsync<TResult>(Expression expression, int proxyId, bool waitTask)
+        internal Task<TResult> SendMethodCallAsync<TResult>(Expression expression, IProxyInternal proxy, bool waitTask)
         {
             var method = default(MethodInfo);
             var parameters = Array.Empty<object>();
@@ -687,10 +798,10 @@ namespace AI4E.Utils.Proxying
                 throw new InvalidOperationException(); // TODO: What about Property writes? What about indexed properties?
             }
 
-            return SendMethodCallAsync<TResult>(method, parameters, proxyId, waitTask);
+            return SendMethodCallAsync<TResult>(method, parameters, proxy, waitTask);
         }
 
-        internal async Task<TResult> SendMethodCallAsync<TResult>(MethodInfo method, object[] args, int proxyId, bool waitTask)
+        internal async Task<TResult> SendMethodCallAsync<TResult>(MethodInfo method, object[] args, IProxyInternal proxy, bool waitTask)
         {
             // TODO: Add sanity checks.
 
@@ -713,7 +824,20 @@ namespace AI4E.Utils.Proxying
                         writer.Write((byte)MessageType.MethodCall);
                         writer.Write(seqNum);
 
-                        writer.Write(proxyId);
+                        writer.Write(proxy.Id);
+
+                        var isActivated = proxy.IsActivated;
+
+                        writer.Write(isActivated);
+
+                        if (!isActivated)
+                        {
+                            var proxyType = proxy.RemoteType;
+                            writer.Write(proxyType.AssemblyQualifiedName);
+                            writer.Write((byte)proxy.ActivationMode);
+                            Serialize(writer, proxy.ActivationParamers?.Select(p => (p, p?.GetType())), null);
+                        }
+
                         writer.Write(waitTask);
                         SerializeMethod(writer, method);
                         Serialize(writer, args.ElementWiseMerge(method.GetParameters(), (arg, param) => (arg, param.ParameterType)), cancellationTokens);
@@ -1006,7 +1130,11 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        private IEnumerable<object> Deserialize(BinaryReader reader, ParameterInfo[] parameterInfos, Dictionary<int, CancellationTokenSource> cancellationTokenSources)
+        private IEnumerable<object> Deserialize(
+            BinaryReader reader,
+            ParameterInfo[] parameterInfos,
+            Dictionary<int, CancellationTokenSource> cancellationTokenSources,
+            List<(int id, Type objectType)> activatedProxies)
         {
             var objectCount = reader.ReadInt32();
             for (var i = 0; i < objectCount; i++)
@@ -1016,7 +1144,7 @@ namespace AI4E.Utils.Proxying
                     yield break;// TODO
                 }
 
-                yield return Deserialize(reader, parameterInfos?[i].ParameterType, cancellationTokenSources);
+                yield return Deserialize(reader, parameterInfos?[i].ParameterType, cancellationTokenSources, activatedProxies);
             }
         }
 
@@ -1129,7 +1257,7 @@ namespace AI4E.Utils.Proxying
                 default:
                     writer.Write((byte)TypeCode.Other);
                     writer.Flush();
-                    GetBinaryFormatter(null, cancellationTokens).Serialize(writer.BaseStream, obj);
+                    GetBinaryFormatter(null, cancellationTokens, new List<(int id, Type objectType)>() { }).Serialize(writer.BaseStream, obj);
                     break;
             }
         }
@@ -1153,7 +1281,11 @@ namespace AI4E.Utils.Proxying
             return cancellationTokens.Count - 1;
         }
 
-        private object Deserialize(BinaryReader reader, Type expectedType, Dictionary<int, CancellationTokenSource> cancellationTokenSources)
+        private object Deserialize(
+            BinaryReader reader,
+            Type expectedType,
+            Dictionary<int, CancellationTokenSource> cancellationTokenSources,
+            List<(int id, Type objectType)> activatedProxies)
         {
             var typeCode = (TypeCode)reader.ReadByte();
 
@@ -1215,14 +1347,14 @@ namespace AI4E.Utils.Proxying
                     return reader.ReadBytes(length);
 
                 case TypeCode.Proxy:
-                    return DeserializeProxy(reader, expectedType);
+                    return DeserializeProxy(reader, expectedType, activatedProxies);
 
                 case TypeCode.CancellationToken:
                     var id = reader.ReadInt32();
                     return DeserializeCancellationToken(id, cancellationTokenSources);
 
                 case TypeCode.Other:
-                    return GetBinaryFormatter(cancellationTokenSources, null).Deserialize(reader.BaseStream);
+                    return GetBinaryFormatter(cancellationTokenSources, null, activatedProxies).Deserialize(reader.BaseStream);
 
                 default:
                     throw new FormatException("Unknown type code.");
@@ -1251,6 +1383,15 @@ namespace AI4E.Utils.Proxying
             else
             {
                 writer.Write((byte)ProxyOwner.Local);
+                var isActivated = proxy.IsActivated;
+
+                writer.Write(isActivated);
+
+                if (!isActivated)
+                {
+                    writer.Write((byte)proxy.ActivationMode);
+                    Serialize(writer, proxy.ActivationParamers?.Select(p => (p, p?.GetType())), null);
+                }
             }
 
             var proxyType = proxy.RemoteType;
@@ -1259,14 +1400,29 @@ namespace AI4E.Utils.Proxying
             writer.Write(proxy.Id);
         }
 
-        private object DeserializeProxy(BinaryReader reader, Type expectedType)
+        private object DeserializeProxy(BinaryReader reader, Type expectedType, List<(int id, Type objectType)> activatedProxies)
         {
             var proxyOwner = (ProxyOwner)reader.ReadByte();
+
+            ActivationMode mode = default;
+            object[] parameters = null;
+
+            if (proxyOwner == ProxyOwner.Local)
+            {
+                var isActivated = reader.ReadBoolean();
+
+                if (!isActivated)
+                {
+                    mode = (ActivationMode)reader.ReadByte();
+                    parameters = Deserialize(reader, (ParameterInfo[])null, null, activatedProxies).ToArray();
+                }
+            }
+
             var proxyType = LoadTypeIgnoringVersion(reader.ReadString());
             var actualType = LoadTypeIgnoringVersion(reader.ReadString());
             var proxyId = reader.ReadInt32();
 
-            return DeserializeProxy(expectedType, proxyOwner, proxyType, actualType, proxyId);
+            return DeserializeProxy(expectedType, proxyOwner, proxyType, actualType, proxyId, mode, parameters, activatedProxies);
         }
 
         private object DeserializeProxy(
@@ -1274,7 +1430,10 @@ namespace AI4E.Utils.Proxying
             ProxyOwner proxyOwner,
             Type proxyType,
             Type actualType,
-            int proxyId)
+            int proxyId,
+            ActivationMode mode,
+            object[] parameters,
+            List<(int id, Type objectType)> activatedProxies)
         {
             if (proxyOwner == ProxyOwner.Remote)
             {
@@ -1332,7 +1491,23 @@ namespace AI4E.Utils.Proxying
             {
                 if (!TryGetProxyById(proxyId, out var proxy))
                 {
-                    throw new Exception("Proxy not found.");
+                    object instance;
+                    var ownsInstance = false;
+
+                    if (mode == ActivationMode.Create)
+                    {
+                        instance = ActivatorUtilities.CreateInstance(_serviceProvider, proxyType, parameters);
+                        ownsInstance = true;
+                    }
+                    else // if (mode == ActivationMode.Load)
+                    {
+                        instance = _serviceProvider.GetRequiredService(proxyType);
+                    }
+
+                    proxy = (IProxyInternal)Activator.CreateInstance(typeof(Proxy<>).MakeGenericType(proxyType), BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new[] { instance, ownsInstance }, null);
+                    proxy = RegisterLocalProxy(proxy, proxyId);
+
+                    activatedProxies.Add((proxyId, proxy.LocalInstance.GetType()));
                 }
 
                 if (expectedType != null && expectedType.IsInstanceOfType(proxy.LocalInstance))
@@ -1372,9 +1547,10 @@ namespace AI4E.Utils.Proxying
 
         private BinaryFormatter GetBinaryFormatter(
                 Dictionary<int, CancellationTokenSource> cancellationTokenSources,
-                List<CancellationToken> cancellationTokens)
+                List<CancellationToken> cancellationTokens,
+                List<(int id, Type objectType)> activatedProxies)
         {
-            var selector = new FallbackSurrogateSelector(this);
+            var selector = new FallbackSurrogateSelector(this, activatedProxies);
 
             HashSet<Type> transparentProxyTypes;
 
@@ -1383,7 +1559,7 @@ namespace AI4E.Utils.Proxying
                 transparentProxyTypes = _loadedTransparentProxyTypes.ToHashSet();
             }
 
-            var proxySurrogate = new ProxySurrogate(this);
+            var proxySurrogate = new ProxySurrogate(this, activatedProxies);
             foreach (var remoteType in _loadedRemoteTypes) // Volatile read op.
             {
                 selector.AddSurrogate(typeof(Proxy<>).MakeGenericType(remoteType), new StreamingContext(), proxySurrogate);
@@ -1459,11 +1635,14 @@ namespace AI4E.Utils.Proxying
         private sealed class ProxySurrogate : ISerializationSurrogate
         {
             private readonly ProxyHost _proxyHost;
+            private readonly List<(int id, Type objectType)> _activatedProxies;
 
-            public ProxySurrogate(ProxyHost proxyHost)
+            public ProxySurrogate(ProxyHost proxyHost, List<(int id, Type objectType)> activatedProxies)
             {
                 Debug.Assert(proxyHost != null);
+                Debug.Assert(activatedProxies != null);
                 _proxyHost = proxyHost;
+                _activatedProxies = activatedProxies;
             }
 
             public void GetObjectData(object obj, SerializationInfo info, StreamingContext context)
@@ -1485,6 +1664,14 @@ namespace AI4E.Utils.Proxying
                 else
                 {
                     proxyOwner = (byte)ProxyOwner.Local;
+
+                    info.AddValue("isActivated", proxy.IsActivated);
+
+                    if (!proxy.IsActivated)
+                    {
+                        info.AddValue("mode", (byte)proxy.ActivationMode);
+                        info.AddValue("parameters", proxy.ActivationParamers);
+                    }
                 }
 
                 var expectedType = obj is IProxyInternal ? typeof(Proxy<>).MakeGenericType(remoteType) : remoteType;
@@ -1508,11 +1695,22 @@ namespace AI4E.Utils.Proxying
             {
                 var remoteType = info.ObjectType.GetGenericArguments()[0];
                 var proxyOwner = (ProxyOwner)info.GetByte("proxyOwner");
+
+                ActivationMode mode = default;
+                object[] parameters = null;
+
+
+                if (proxyOwner == ProxyOwner.Local)
+                {
+                    mode = (ActivationMode)info.GetByte("mode");
+                    parameters = (object[])info.GetValue("parameters", typeof(object[]));
+                }
+
                 var id = info.GetInt32("id");
                 var objectType = LoadTypeIgnoringVersion(info.GetString("objectType"));
                 var expectedType = LoadTypeIgnoringVersion(info.GetString("expectedType"));
 
-                return _proxyHost.DeserializeProxy(expectedType, proxyOwner, remoteType, objectType, id);
+                return _proxyHost.DeserializeProxy(expectedType, proxyOwner, remoteType, objectType, id, mode, parameters, _activatedProxies);
             }
         }
 
@@ -1551,11 +1749,14 @@ namespace AI4E.Utils.Proxying
         private sealed class FallbackSurrogateSelector : SurrogateSelector
         {
             private readonly ProxyHost _proxyHost;
+            private readonly List<(int id, Type objectType)> _activatedProxies;
 
-            public FallbackSurrogateSelector(ProxyHost proxyHost)
+            public FallbackSurrogateSelector(ProxyHost proxyHost, List<(int id, Type objectType)> activatedProxies)
             {
                 Debug.Assert(proxyHost != null);
+                Debug.Assert(activatedProxies != null);
                 _proxyHost = proxyHost;
+                _activatedProxies = activatedProxies;
             }
 
             public override ISerializationSurrogate GetSurrogate(Type type, StreamingContext context, out ISurrogateSelector selector)
@@ -1564,7 +1765,7 @@ namespace AI4E.Utils.Proxying
 
                 if (surrogate == null && !type.IsSerializable)
                 {
-                    return new ProxySurrogate(_proxyHost);
+                    return new ProxySurrogate(_proxyHost, _activatedProxies);
                 }
 
                 return surrogate;

@@ -36,12 +36,17 @@ namespace AI4E.Utils.Proxying
 {
     internal interface IProxyInternal : IAsyncDisposable
     {
-        object LocalInstance { get; }
-
-        Type RemoteType { get; }
-        ValueTask<Type> GetObjectTypeAsync(CancellationToken cancellation = default);
         int Id { get; }
+        object LocalInstance { get; }
+        Type RemoteType { get; }
 
+        ActivationMode ActivationMode { get; }
+        object[] ActivationParamers { get; }
+        bool IsActivated { get; }
+
+        ValueTask<Type> GetObjectTypeAsync(CancellationToken cancellation);
+
+        void Activate(Type objectType);
         void Register(ProxyHost host, int proxyId, Action unregisterAction);
 
         Task<object> ExecuteAsync(MethodInfo method, object[] args);

@@ -963,6 +963,67 @@ namespace AI4E.Utils.Proxying.Test
             }
         }
 
+        [TestMethod]
+        public async Task SyncActivationTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider());
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = localProxyHost.Create<Foo>();
+                var result = await fooProxy.ExecuteAsync(foo => foo.Add(5, 3));
+
+                Assert.AreEqual(8, result);
+                Assert.IsTrue(((IProxyInternal)fooProxy).IsActivated);
+            }
+        }
+
+        [TestMethod]
+        public async Task SyncActivatedProxyInArgumentsTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider(services => services.AddSingleton(new Value(5))));
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var fooProxy = await localProxyHost.CreateAsync<Foo>(default);
+                var valueProxy = localProxyHost.Load<Value>();
+
+                var result = await fooProxy.ExecuteAsync(foo => foo.ReadValueAsync(valueProxy));
+
+                Assert.AreEqual(5, result);
+                Assert.IsTrue(((IProxyInternal)valueProxy).IsActivated);
+            }
+        }
+
+        [TestMethod]
+        public async Task SyncActivatedProxyInComlexTypeTest()
+        {
+            using (var fs1 = new FloatingStream())
+            using (var fs2 = new FloatingStream())
+            using (var mux1 = new MultiplexStream(fs1, fs2))
+            using (var mux2 = new MultiplexStream(fs2, fs1))
+            {
+                var remoteProxyHost = new ProxyHost(mux1, BuildServiceProvider(services => services.AddSingleton(new Value(5))));
+                var localProxyHost = new ProxyHost(mux2, BuildServiceProvider());
+
+                var proxy = await localProxyHost.CreateAsync<ComplexTypeStub>(default);
+                var valueProxy = localProxyHost.Load<Value>();
+
+                var result = await proxy.ExecuteAsync(p => p.GetValueAsync(new ComplexTypeWithProxy { Proxy = valueProxy }));
+
+                Assert.AreEqual(5, result);
+                Assert.IsTrue(((IProxyInternal)valueProxy).IsActivated);
+            }
+        }
+
         // TODO: Add tests for all primitive types and properties.
 
         private IServiceProvider BuildServiceProvider()

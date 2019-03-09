@@ -47,9 +47,12 @@ namespace AI4E.Utils.Proxying
 
         private ProxyHost _host;
         private Action _unregisterAction;
-        private readonly Type _objectType;
+        private Type _objectType;
         private readonly bool _ownsInstance;
         private readonly AsyncDisposeHelper _disposeHelper;
+
+        private bool _isActivated;
+        private TaskCompletionSource<Type> _objectTypeTaskCompletionSource;
 
         #region C'tor
 
@@ -66,6 +69,17 @@ namespace AI4E.Utils.Proxying
             _host = host;
             Id = id;
             _objectType = objectType;
+            _isActivated = true;
+            _disposeHelper = new AsyncDisposeHelper(DisposeInternalAsync);
+        }
+
+        internal Proxy(ProxyHost proxyHost, int id, ActivationMode activationMode, object[] activationParameters)
+        {
+            _host = proxyHost;
+            Id = id;
+            ActivationMode = activationMode;
+            ActivationParamers = activationParameters;
+            _isActivated = false;
             _disposeHelper = new AsyncDisposeHelper(DisposeInternalAsync);
         }
 
@@ -76,18 +90,49 @@ namespace AI4E.Utils.Proxying
         object IProxy.LocalInstance => LocalInstance;
         internal bool IsRemoteProxy => LocalInstance == null;
         public Type RemoteType => typeof(TRemote);
+        public int Id { get; private set; }
+
+        public ActivationMode ActivationMode { get; }
+        public object[] ActivationParamers { get; }
+        public bool IsActivated => Volatile.Read(ref _isActivated);
 
         public ValueTask<Type> GetObjectTypeAsync(CancellationToken cancellation)
         {
-            if(!IsRemoteProxy)
+            if (!IsRemoteProxy)
             {
                 return new ValueTask<Type>(LocalInstance.GetType());
             }
 
-            return new ValueTask<Type>(_objectType);
+            if (Volatile.Read(ref _isActivated))
+            {
+                return new ValueTask<Type>(_objectType);
+            }
+
+            var objectTypeTaskCompletionSource = GetObjectTypeTaskCompletionSource();
+
+            var task = objectTypeTaskCompletionSource.Task.WithCancellation(cancellation);
+            return new ValueTask<Type>(task);
+
         }
 
-        public int Id { get; private set; }
+        private TaskCompletionSource<Type> GetObjectTypeTaskCompletionSource()
+        {
+            var objectTypeTaskCompletionSource = Volatile.Read(ref _objectTypeTaskCompletionSource);
+
+            if (objectTypeTaskCompletionSource == null)
+            {
+                objectTypeTaskCompletionSource = new TaskCompletionSource<Type>();
+
+                var existing = Interlocked.CompareExchange(ref _objectTypeTaskCompletionSource, objectTypeTaskCompletionSource, null);
+
+                if (existing != null)
+                {
+                    objectTypeTaskCompletionSource = existing;
+                }
+            }
+
+            return objectTypeTaskCompletionSource;
+        }
 
         #region Disposal
 
@@ -148,7 +193,7 @@ namespace AI4E.Utils.Proxying
                 {
                     if (IsRemoteProxy)
                     {
-                        await _host.SendMethodCallAsync<object>(expression.Body, Id, false);
+                        await _host.SendMethodCallAsync<object>(expression.Body, this, false);
                     }
                     else
                     {
@@ -172,7 +217,7 @@ namespace AI4E.Utils.Proxying
                 {
                     if (IsRemoteProxy)
                     {
-                        await _host.SendMethodCallAsync<object>(expression.Body, Id, true);
+                        await _host.SendMethodCallAsync<object>(expression.Body, this, true);
                         return;
                     }
 
@@ -195,7 +240,7 @@ namespace AI4E.Utils.Proxying
                 {
                     if (IsRemoteProxy)
                     {
-                        return await _host.SendMethodCallAsync<TResult>(expression.Body, Id, false);
+                        return await _host.SendMethodCallAsync<TResult>(expression.Body, this, false);
                     }
 
                     var compiled = expression.Compile();
@@ -216,7 +261,7 @@ namespace AI4E.Utils.Proxying
                 {
                     if (IsRemoteProxy)
                     {
-                        return await _host.SendMethodCallAsync<TResult>(expression.Body, Id, true);
+                        return await _host.SendMethodCallAsync<TResult>(expression.Body, this, true);
                     }
 
                     var compiled = expression.Compile();
@@ -238,13 +283,22 @@ namespace AI4E.Utils.Proxying
             {
                 using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
                 {
-                    return await _host.SendMethodCallAsync<object>(method, args, Id, typeof(Task).IsAssignableFrom(method.ReturnType));
+                    return await _host.SendMethodCallAsync<object>(method, args, this, typeof(Task).IsAssignableFrom(method.ReturnType));
                 }
             }
             catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
             {
                 throw new ObjectDisposedException(GetType().FullName);
             }
+        }
+
+        public void Activate(Type objectType)
+        {
+            _objectType = objectType;
+            Volatile.Write(ref _isActivated, true);
+
+            var objectTypeTaskCompletionSource = GetObjectTypeTaskCompletionSource();
+            objectTypeTaskCompletionSource.TrySetResult(objectType);
         }
 
         public void Register(ProxyHost host, int proxyId, Action unregisterAction)
