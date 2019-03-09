@@ -227,7 +227,7 @@ namespace AI4E.Utils.Proxying.Test
                 Assert.IsInstanceOfType(remoteProxy, typeof(IProxy<Foo>));
                 Assert.IsNotNull(remoteProxy.LocalInstance);
                 Assert.IsInstanceOfType(remoteProxy.LocalInstance, typeof(Foo));
-                Assert.AreEqual(localProxy.Id, remoteProxy.Id);
+                Assert.AreEqual(((IProxyInternal)localProxy).Id, remoteProxy.Id);
             }
         }
 
@@ -471,7 +471,7 @@ namespace AI4E.Utils.Proxying.Test
                 Assert.IsNotNull(resultProxy.LocalInstance);
                 Assert.IsInstanceOfType(resultProxy.LocalInstance, typeof(Value));
                 Assert.AreSame(value, resultProxy.LocalInstance);
-                Assert.AreEqual(valueLocalProxy.Id, resultProxy.Id);
+                Assert.AreEqual(((IProxyInternal)valueLocalProxy).Id, ((IProxyInternal)resultProxy).Id);
 
                 // TODO: Do we really need to enforce this?
                 Assert.AreSame(valueLocalProxy, resultProxy);
@@ -544,7 +544,7 @@ namespace AI4E.Utils.Proxying.Test
             var castProxy = (CastProxy<Foo, object>)proxy.Cast<object>();
 
             Assert.AreSame(proxy, castProxy.Original);
-            Assert.AreEqual(proxy.Id, castProxy.Id);
+            Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
             Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
             Assert.AreSame(proxy.LocalInstance, castProxy.LocalInstance);
             Assert.AreEqual(typeof(object), castProxy.RemoteType);
@@ -558,7 +558,7 @@ namespace AI4E.Utils.Proxying.Test
             var castProxy = (CastProxy<object, Foo>)proxy.Cast<Foo>();
 
             Assert.AreSame(proxy, castProxy.Original);
-            Assert.AreEqual(proxy.Id, castProxy.Id);
+            Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
             Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
             Assert.AreSame(proxy.LocalInstance, castProxy.LocalInstance);
             Assert.AreEqual(typeof(Foo), castProxy.RemoteType);
@@ -580,7 +580,7 @@ namespace AI4E.Utils.Proxying.Test
                 var castProxy = (CastProxy<Foo, object>)proxy.Cast<object>();
 
                 Assert.AreSame(proxy, castProxy.Original);
-                Assert.AreEqual(proxy.Id, castProxy.Id);
+                Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
                 Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
                 Assert.IsNull(castProxy.LocalInstance);
                 Assert.AreEqual(typeof(object), castProxy.RemoteType);
@@ -607,7 +607,7 @@ namespace AI4E.Utils.Proxying.Test
                 var castProxy = (CastProxy<IFoo, Foo>)proxy.Cast<Foo>();
 
                 Assert.AreSame(proxy, castProxy.Original);
-                Assert.AreEqual(proxy.Id, castProxy.Id);
+                Assert.AreEqual(((IProxyInternal)proxy).Id, castProxy.Id);
                 Assert.AreEqual(proxy.ObjectType, castProxy.ObjectType);
                 Assert.IsNull(castProxy.LocalInstance);
                 Assert.AreEqual(typeof(Foo), castProxy.RemoteType);
@@ -635,7 +635,7 @@ namespace AI4E.Utils.Proxying.Test
             var castAgainProxy = (CastProxy<Foo, object>)castProxy.Cast<object>();
 
             Assert.AreSame(proxy, castAgainProxy.Original);
-            Assert.AreEqual(proxy.Id, castAgainProxy.Id);
+            Assert.AreEqual(((IProxyInternal)proxy).Id, castAgainProxy.Id);
             Assert.AreEqual(proxy.ObjectType, castAgainProxy.ObjectType);
             Assert.AreSame(proxy.LocalInstance, castAgainProxy.LocalInstance);
             Assert.AreEqual(typeof(object), castAgainProxy.RemoteType);

@@ -54,11 +54,6 @@ namespace AI4E.Utils.Proxying
         Type ObjectType { get; }
 
         /// <summary>
-        /// Gets the proxy id.
-        /// </summary>
-        int Id { get; }
-
-        /// <summary>
         /// Casts the proxy to a proxy with the specified remote type.
         /// </summary>
         /// <typeparam name="TCast">The remote type of the result proxy.</typeparam>

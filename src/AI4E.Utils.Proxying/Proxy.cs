@@ -1,4 +1,4 @@
-﻿/* License
+/* License
  * --------------------------------------------------------------------------------------------------------------------
  * This file is part of the AI4E distribution.
  *   (https://github.com/AI4E/AI4E.Utils)
@@ -46,7 +46,7 @@ namespace AI4E.Utils.Proxying
 
         private ProxyHost _host;
         private Action _unregisterAction;
-        private readonly Type _remoteType;
+        private readonly Type _objectType;
         private readonly bool _ownsInstance;
         private readonly AsyncDisposeHelper _disposeHelper;
 
@@ -60,28 +60,25 @@ namespace AI4E.Utils.Proxying
             _ownsInstance = ownsInstance;
         }
 
-        internal Proxy(ProxyHost host, int id, Type remoteType)
+        internal Proxy(ProxyHost host, int id, Type objectType)
         {
             _host = host;
             Id = id;
-            _remoteType = remoteType;
+            _objectType = objectType;
             _disposeHelper = new AsyncDisposeHelper(DisposeInternalAsync);
         }
 
         #endregion
 
         public TRemote LocalInstance { get; }
-
-        public Type ObjectType => IsRemoteProxy ? _remoteType : LocalInstance.GetType();
-
-        public Type RemoteType => typeof(TRemote);
-
-        public int Id { get; private set; }
-
         object IProxyInternal.LocalInstance => LocalInstance;
         object IProxy.LocalInstance => LocalInstance;
-
         internal bool IsRemoteProxy => LocalInstance == null;
+        public Type RemoteType => typeof(TRemote);
+
+        public Type ObjectType => IsRemoteProxy ? _objectType : LocalInstance.GetType();
+
+        public int Id { get; private set; }
 
         #region Disposal
 

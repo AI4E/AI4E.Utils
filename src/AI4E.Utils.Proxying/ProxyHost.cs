@@ -82,7 +82,8 @@ namespace AI4E.Utils.Proxying
         private readonly AsyncDisposeHelper _disposeHelper;
 
         private int _nextSeqNum = 0;
-        private int _nextProxyId = 0;
+        private int _nextLocalProxyId = 0;
+        private int _nextRemoteProxyId = 0;
 
         #endregion
 
@@ -133,11 +134,16 @@ namespace AI4E.Utils.Proxying
             return ActivateAsync<TRemote>(ActivationMode.Load, parameter: null, cancellation);
         }
 
-        private async Task<IProxy<TRemote>> ActivateAsync<TRemote>(ActivationMode mode, object[] parameter, CancellationToken cancellation)
+        internal async Task<IProxy<TRemote>> ActivateAsync<TRemote>(ActivationMode mode, object[] parameter, CancellationToken cancellation)
             where TRemote : class
         {
             int seqNum;
             Task<IProxy<TRemote>> result;
+
+            var id = Interlocked.Increment(ref _nextRemoteProxyId);
+
+            // Ids for remote proxies we create must carry a one in the MSB to prevent id conflicts.
+            id = unchecked(id |-1);
 
             using (var stream = new MemoryStream())
             {
@@ -153,6 +159,7 @@ namespace AI4E.Utils.Proxying
                         writer.Write((byte)MessageType.Activation);
                         writer.Write(seqNum);
 
+                        writer.Write(id);
                         writer.Write((byte)mode);
                         WriteType(writer, typeof(TRemote));
                         Serialize(writer, parameter?.Select(p => (p, p?.GetType())), null);
@@ -187,12 +194,6 @@ namespace AI4E.Utils.Proxying
                 }
             }
             catch (ObjectDisposedException) { }
-        }
-
-        private enum ActivationMode : byte
-        {
-            Create,
-            Load
         }
 
         #endregion
@@ -247,7 +248,7 @@ namespace AI4E.Utils.Proxying
 
         #region Proxies
 
-        private IProxyInternal RegisterLocalProxy(IProxyInternal proxy)
+        private IProxyInternal RegisterLocalProxy(IProxyInternal proxy, int id)
         {
             try
             {
@@ -259,8 +260,6 @@ namespace AI4E.Utils.Proxying
                         {
                             return existing;
                         }
-
-                        var id = Interlocked.Increment(ref _nextProxyId);
 
                         proxy.Register(this, id, () => UnregisterLocalProxy(proxy));
 
@@ -275,6 +274,13 @@ namespace AI4E.Utils.Proxying
             }
 
             return proxy;
+        }
+
+        private IProxyInternal RegisterLocalProxy(IProxyInternal proxy)
+        {
+            var id = Interlocked.Increment(ref _nextLocalProxyId);
+
+            return RegisterLocalProxy(proxy, id);
         }
 
         private void UnregisterLocalProxy(IProxyInternal proxy)
@@ -475,6 +481,7 @@ namespace AI4E.Utils.Proxying
 
             try
             {
+                var id = reader.ReadInt32();
                 var mode = (ActivationMode)reader.ReadByte();
                 var type = ReadType(reader);
                 var parameter = Deserialize(reader, (ParameterInfo[])null, null).ToArray();
@@ -1563,5 +1570,11 @@ namespace AI4E.Utils.Proxying
                 return surrogate;
             }
         }
+    }
+
+    internal enum ActivationMode : byte
+    {
+        Create,
+        Load
     }
 }
