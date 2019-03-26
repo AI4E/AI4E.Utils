@@ -56,6 +56,7 @@
  */
 
 using System;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,15 +65,37 @@ using System.Threading.Tasks;
 
 namespace AI4E.Utils.Async
 {
+    /// <summary>
+    /// Contains flags controlling the behavior of <see cref="DisposableAsyncLazy{T}"/>.
+    /// </summary>
     [Flags]
     public enum DisposableAsyncLazyOptions
     {
+        /// <summary>
+        /// The default options are used.
+        /// </summary>
         None = 0,
+
+        /// <summary>
+        /// The value factory is invoked on the thread that awaits the <see cref="DisposableAsyncLazy{T}"/>.
+        /// </summary>
         ExecuteOnCallingThread = 1,
+
+        /// <summary>
+        /// The value factory is invoked the next time the <see cref="DisposableAsyncLazy{T}"/> is awaited if a failure occurs.
+        /// </summary>
         RetryOnFailure = 2,
+
+        /// <summary>
+        /// The value factory is autostarted when the <see cref="DisposableAsyncLazy{T}"/> is constructed.
+        /// </summary>
         Autostart = 4
     }
 
+    /// <summary>
+    /// Represents a lazyly created object with async factory and disposal support.
+    /// </summary>
+    /// <typeparam name="T">The type of value that is created lazily.</typeparam>
     public sealed class DisposableAsyncLazy<T> : IAsyncDisposable
     {
         private static readonly Func<T, Task> _noDisposal = _ => System.Threading.Tasks.Task.CompletedTask;
@@ -81,20 +104,36 @@ namespace AI4E.Utils.Async
         private readonly Func<T, Task> _disposal;
         private readonly CancellationTokenSource _cancellationSource;
         private readonly TaskCompletionSource<object> _disposalSource = new TaskCompletionSource<object>();
-        private readonly object _lock = new object();
+        private readonly object _mutex = new object();
 
         private Lazy<Task<T>> _instance;
         private Task _disposeTask;
 
         #region C'tor
 
-        public DisposableAsyncLazy(Func<Task<T>> factory, Func<T, Task> disposal, DisposableAsyncLazyOptions options = default)
+        /// <summary>
+        /// Creates a new instance of the <see cref="DisposableAsyncLazy{T}"/> type
+        /// with the specified factory and disposal operations.
+        /// </summary>
+        /// <param name="factory">The factory that is used to instantiate the value.</param>
+        /// <param name="disposal">The disposal the is used to destroy the value.</param>
+        /// <param name="options">
+        /// A combination of <see cref="DisposableAsyncLazyOptions"/> flags that control the
+        /// behavior of the created <see cref="DisposableAsyncLazy{T}"/> or <see cref="DisposableAsyncLazyOptions.None"/>.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if either <paramref name="factory"/> or <paramref name="disposal"/> is <c>null</c>.
+        /// </exception>
+        public DisposableAsyncLazy(
+            Func<Task<T>> factory, Func<T, Task> disposal, DisposableAsyncLazyOptions options = default)
         {
             if (factory == null)
                 throw new ArgumentNullException(nameof(factory));
 
             if (disposal == null)
                 throw new ArgumentNullException(nameof(disposal));
+
+            // TODO: Validate the options.
 
             _cancellationSource = new CancellationTokenSource();
             _disposal = disposal;
@@ -112,6 +151,19 @@ namespace AI4E.Utils.Async
                 Start();
         }
 
+        /// <summary>
+        /// Creates a new instance of the <see cref="DisposableAsyncLazy{T}"/> type
+        /// with the specified factory and disposal operations.
+        /// </summary>
+        /// <param name="factory">The factory that is used to instantiate the value.</param>
+        /// <param name="disposal">The disposal the is used to destroy the value.</param>
+        /// <param name="options">
+        /// A combination of <see cref="DisposableAsyncLazyOptions"/> flags that control the
+        /// behavior of the created <see cref="DisposableAsyncLazy{T}"/> or <see cref="DisposableAsyncLazyOptions.None"/>.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if either <paramref name="factory"/> or <paramref name="disposal"/> is <c>null</c>.
+        /// </exception>
         public DisposableAsyncLazy(Func<CancellationToken, Task<T>> factory, Func<T, Task> disposal, DisposableAsyncLazyOptions options = default)
         {
             if (factory == null)
@@ -149,10 +201,30 @@ namespace AI4E.Utils.Async
                 Start();
         }
 
+        /// <summary>
+        /// Creates a new instance of the <see cref="DisposableAsyncLazy{T}"/> type
+        /// with the specified factory and disposal operations.
+        /// </summary>
+        /// <param name="factory">The factory that is used to instantiate the value.</param>
+        /// <param name="options">
+        /// A combination of <see cref="DisposableAsyncLazyOptions"/> flags that control the
+        /// behavior of the created <see cref="DisposableAsyncLazy{T}"/> or <see cref="DisposableAsyncLazyOptions.None"/>.
+        /// </param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="factory"/>  is <c>null</c>.</exception>
         public DisposableAsyncLazy(Func<Task<T>> factory, DisposableAsyncLazyOptions options = default)
             : this(factory, _noDisposal, options)
         { }
 
+        /// <summary>
+        /// Creates a new instance of the <see cref="DisposableAsyncLazy{T}"/> type
+        /// with the specified factory and disposal operations.
+        /// </summary>
+        /// <param name="factory">The factory that is used to instantiate the value.</param>
+        /// <param name="options">
+        /// A combination of <see cref="DisposableAsyncLazyOptions"/> flags that control the
+        /// behavior of the created <see cref="DisposableAsyncLazy{T}"/> or <see cref="DisposableAsyncLazyOptions.None"/>.
+        /// </param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="factory"/>  is <c>null</c>.</exception>
         public DisposableAsyncLazy(Func<CancellationToken, Task<T>> factory, DisposableAsyncLazyOptions options = default)
             : this(factory, _noDisposal, options)
         { }
@@ -179,7 +251,7 @@ namespace AI4E.Utils.Async
 
                     if (!cancellationRequested)
                     {
-                        lock (_lock)
+                        lock (_mutex)
                         {
                             _instance = new Lazy<Task<T>>(_factory);
                         }
@@ -195,8 +267,13 @@ namespace AI4E.Utils.Async
         }
 
         /// <summary>
-        /// Whether the asynchronous factory method has started. This is initially <c>false</c> and becomes <c>true</c> when this instance is awaited or after <see cref="Start"/> is called.
+        /// Gets a boolean value indicating whether the asynchronous factory method has started yet.
         /// </summary>
+        /// <remarks>
+        /// This is initially <c>false</c> and becomes <c>true</c> when this instance is awaited,
+        /// after <see cref="Start"/> is called or if the <see cref="DisposableAsyncLazyOptions.Autostart"/>
+        /// flag was used to construct the current instance..
+        /// </remarks>
         public bool IsStarted
         {
             get
@@ -206,9 +283,20 @@ namespace AI4E.Utils.Async
                     throw new ObjectDisposedException(GetType().FullName);
                 }
 
-                lock (_lock)
+                lock (_mutex)
                 {
                     return _instance.IsValueCreated;
+                }
+            }
+        }
+
+        private bool IsNotYetStarted
+        {
+            get
+            {
+                lock (_mutex)
+                {
+                    return !_instance.IsValueCreated;
                 }
             }
         }
@@ -222,10 +310,7 @@ namespace AI4E.Utils.Async
                     return true;
                 }
 
-                lock (_lock)
-                {
-                    return _instance.IsValueCreated;
-                }
+                return IsNotYetStarted;
             }
         }
 
@@ -241,7 +326,7 @@ namespace AI4E.Utils.Async
                     throw new ObjectDisposedException(GetType().FullName);
                 }
 
-                lock (_lock)
+                lock (_mutex)
                 {
                     return _instance.Value;
                 }
@@ -249,18 +334,18 @@ namespace AI4E.Utils.Async
         }
 
         /// <summary>
-        /// Asynchronous infrastructure support. This method permits instances of <see cref="AsyncLazy&lt;T&gt;"/> to be await'ed.
+        /// Asynchronous infrastructure support. This method permits instances of <see cref="DisposableAsyncLazy{T}"/> to be await'ed.
         /// </summary>
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public TaskAwaiter<T> GetAwaiter()
         {
             return Task.GetAwaiter();
         }
 
         /// <summary>
-        /// Asynchronous infrastructure support. This method permits instances of <see cref="AsyncLazy&lt;T&gt;"/> to be await'ed.
+        /// Asynchronous infrastructure support. This method permits instances of <see cref="DisposableAsyncLazy{T}"/> to be await'ed.
         /// </summary>
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public ConfiguredTaskAwaitable<T> ConfigureAwait(bool continueOnCapturedContext)
         {
             return Task.ConfigureAwait(continueOnCapturedContext);
@@ -271,24 +356,25 @@ namespace AI4E.Utils.Async
         /// </summary>
         public void Start()
         {
-            var unused = Task;
+            _ = Task;
         }
 
+        /// <inheritdoc/>
         public Task Disposal => _disposalSource.Task;
 
+        /// <inheritdoc/>
         public void Dispose()
         {
             lock (_disposalSource)
             {
                 if (_disposeTask == null)
                 {
-                    _cancellationSource.Cancel();
                     _disposeTask = DisposeInternalAsync();
-                    _cancellationSource.Dispose();
                 }
             }
         }
 
+        /// <inheritdoc/>
         public Task DisposeAsync()
         {
             Dispose();
@@ -297,30 +383,47 @@ namespace AI4E.Utils.Async
 
         private async Task DisposeInternalAsync()
         {
+            var needsDisposal = !IsNotYetStartedOrDisposed;
+
+            _cancellationSource.Cancel();
+
             try
             {
-                if (!IsNotYetStartedOrDisposed)
+                try
                 {
-                    T result;
-                    try
+                    if (needsDisposal)
                     {
-                        result = await Task;
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        return;
-                    }
+                        T result;
+                        try
+                        {
+                            Task<T> task;
+                            lock (_mutex)
+                            {
+                                task = _instance.Value;
+                            }
 
-                    await _disposal(result);
+                            result = await task;
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return;
+                        }
+
+                        await _disposal(result);
+                    }
                 }
-            }
-            catch (Exception exc)
-            {
-                _disposalSource.TrySetException(exc);
+                catch (Exception exc)
+                {
+                    _disposalSource.TrySetException(exc);
+                }
+                finally
+                {
+                    _disposalSource.SetResult(null);
+                }
             }
             finally
             {
-                _disposalSource.SetResult(null);
+                _cancellationSource.Dispose();
             }
         }
     }
