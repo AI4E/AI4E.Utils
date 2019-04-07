@@ -418,7 +418,7 @@ namespace AI4E.Utils.Async
                 }
                 finally
                 {
-                    _disposalSource.SetResult(null);
+                    _disposalSource.TrySetResult(null);
                 }
             }
             finally
