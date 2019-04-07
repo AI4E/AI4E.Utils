@@ -66,7 +66,7 @@ namespace AI4E.Utils.Memory
         public bool CanAdvance(int count)
         {
             if (count < 0)
-                throw new ArgumentNullException(nameof(count));
+                throw new ArgumentOutOfRangeException(nameof(count));
 
             if (count == 0)
                 return true;
