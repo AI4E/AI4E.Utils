@@ -49,12 +49,10 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-    <DefineConstants>SUPPORTS_ASYNC_ENUMERABLE</DefineConstants>
-    <DefineConstants>SUPPORTS_ASYNC_DISPOSABLE</DefineConstants>
+    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC_ENUMERABLE;SUPPORTS_ASYNC_DISPOSABLE;SUPPORTS_SPAN_APIS</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
-    <DefineConstants>SUPPORTS_ASYNC_ENUMERABLE</DefineConstants>
-    <DefineConstants>SUPPORTS_ASYNC_DISPOSABLE</DefineConstants>
+    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC_ENUMERABLE;SUPPORTS_ASYNC_DISPOSABLE;SUPPORTS_SPAN_APIS</DefineConstants>
   </PropertyGroup>
 </Project>
