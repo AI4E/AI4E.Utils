@@ -39,6 +39,10 @@ namespace AI4E.Utils.Proxying
     /// </summary>
     public interface IProxy : IAsyncDisposable
     {
+#if SUPPORTS_ASYNC_DISPOSABLE
+        Task Disposal { get; }
+#endif
+
         /// <summary>
         /// Gets the local proxied instance or null if this is a remote proxy.
         /// </summary>

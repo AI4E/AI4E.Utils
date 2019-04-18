@@ -53,6 +53,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#if !SUPPORTS_ASYNC_DISPOSABLE
+
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -88,3 +90,5 @@ namespace AI4E.Utils.AsyncEnumerable
         }
     }
 }
+
+#endif

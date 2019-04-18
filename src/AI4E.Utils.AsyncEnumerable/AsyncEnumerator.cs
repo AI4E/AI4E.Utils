@@ -53,6 +53,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#if !SUPPORTS_ASYNC_DISPOSABLE
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -175,3 +177,5 @@ namespace AI4E.Utils.AsyncEnumerable
             where TStateMachine : IAsyncStateMachine => stateMachine.MoveNext();
     }
 }
+
+#endif

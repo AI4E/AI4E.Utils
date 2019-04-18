@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>$(NetStandardVersion)</TargetFrameworks>
+    <TargetFrameworks>$(NetStandardVersions);$(NetCoreAppVersion)</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -10,8 +10,11 @@
     <Description>Provides utilities and extension methods for work with Span&lt;T&gt; and Memory&lt;T&gt; based code.</Description>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == '$(NetStandardVersion)'">
     <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.2" />
   </ItemGroup>
 

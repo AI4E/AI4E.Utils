@@ -264,7 +264,13 @@ namespace AI4E.Utils.Proxying
         }
 
         /// <inheritdoc />
-        public Task DisposeAsync()
+        public
+#if SUPPORTS_ASYNC_DISPOSABLE
+            ValueTask
+#else
+            Task
+#endif
+            DisposeAsync()
         {
             return _disposeHelper.DisposeAsync();
         }
@@ -293,7 +299,11 @@ namespace AI4E.Utils.Proxying
                 callback.Invoke(MessageType.ReturnException, objectDisposedException);
             }
 
+#if !SUPPORTS_ASYNC_DISPOSABLE
             await Task.WhenAll(proxies.Select(p => p.DisposeAsync())).HandleExceptionsAsync();
+#else
+            await Task.WhenAll(proxies.Select(p => p.DisposeAsync().AsTask())).HandleExceptionsAsync();
+#endif
 
             _stream.Dispose();
         }

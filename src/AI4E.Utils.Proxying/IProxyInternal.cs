@@ -30,11 +30,17 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+
+#if !SUPPORTS_ASYNC_DISPOSABLE
 using AI4E.Utils.Async;
+#endif
 
 namespace AI4E.Utils.Proxying
 {
     internal interface IProxyInternal : IAsyncDisposable
+#if SUPPORTS_ASYNC_DISPOSABLE
+        , IDisposable
+#endif
     {
         int Id { get; }
         object LocalInstance { get; }

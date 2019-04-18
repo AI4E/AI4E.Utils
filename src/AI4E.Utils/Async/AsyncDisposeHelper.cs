@@ -39,6 +39,9 @@ namespace AI4E.Utils.Async
     /// A helper that can be used to safely dispose of objects in a thread-safe way.
     /// </summary>
     public sealed class AsyncDisposeHelper : IAsyncDisposable
+#if SUPPORTS_ASYNC_DISPOSABLE
+        , IDisposable
+#endif
     {
         #region Fields
 
@@ -233,10 +236,21 @@ namespace AI4E.Utils.Async
         /// the returned task is always completed, to prevent deadlock sitatuations if awaited.
         /// This behaviour can be changed by specifying the <see cref="AsyncDisposeHelperOptions.DisableRecursionDetection"/> option on creation.
         /// </remarks>
-        public Task DisposeAsync()
+        public
+#if SUPPORTS_ASYNC_DISPOSABLE
+            ValueTask
+#else
+            Task
+#endif
+            DisposeAsync()
         {
             Dispose();
+
+#if SUPPORTS_ASYNC_DISPOSABLE
+            return Disposal.AsValueTask();
+#else
             return Disposal;
+#endif       
         }
 
         #endregion

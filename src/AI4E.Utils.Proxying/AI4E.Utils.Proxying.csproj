@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(NetStandardVersion)</TargetFramework>
+    <TargetFrameworks>$(NetStandardVersions);$(NetCoreAppVersion)</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -10,7 +10,7 @@
     <Description>Implements async remote procedure calls (RPCs).</Description>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == '$(NetStandardVersion)'">
     <PackageReference Include="System.Reflection.DispatchProxy" Version="4.5.1" />
   </ItemGroup>
 
