@@ -53,6 +53,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#if !SUPPORTS_ASYNC_DISPOSABLE
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -144,3 +146,5 @@ namespace AI4E.Utils.AsyncEnumerable
         }
     }
 }
+
+#endif

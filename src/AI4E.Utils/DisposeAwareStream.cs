@@ -38,6 +38,9 @@ using Nito.AsyncEx;
 namespace AI4E.Utils
 {
     public sealed class DisposeAwareStream : Stream, IAsyncDisposable
+#if SUPPORTS_ASYNC_DISPOSABLE
+        , IDisposable
+#endif
     {
         private readonly NetworkStream _underlyingStream;
         private readonly Func<Task> _disposeOperation;
@@ -113,14 +116,24 @@ namespace AI4E.Utils
 
                 if (result == 0)
                 {
+#if SUPPORTS_ASYNC_DISPOSABLE
+                    await _disposeHelper.DisposeAsync().AsTask().HandleExceptionsAsync(_logger);
+#else
                     await _disposeHelper.DisposeAsync().HandleExceptionsAsync(_logger);
+#endif
+
                 }
 
                 return result;
             }
             catch (Exception exc) when (exc is SocketException || exc is IOException || exc is ObjectDisposedException)
             {
+#if SUPPORTS_ASYNC_DISPOSABLE
+                await _disposeHelper.DisposeAsync().AsTask().HandleExceptionsAsync(_logger);
+#else
                 await _disposeHelper.DisposeAsync().HandleExceptionsAsync(_logger);
+#endif
+
                 throw;
             }
         }
@@ -153,7 +166,11 @@ namespace AI4E.Utils
             }
             catch (Exception exc) when (exc is SocketException || exc is IOException || exc is ObjectDisposedException)
             {
+#if SUPPORTS_ASYNC_DISPOSABLE
+                await _disposeHelper.DisposeAsync().AsTask().HandleExceptionsAsync(_logger);
+#else
                 await _disposeHelper.DisposeAsync().HandleExceptionsAsync(_logger);
+#endif
                 throw;
             }
         }
@@ -176,7 +193,13 @@ namespace AI4E.Utils
 
         public Task Disposal => _disposeHelper.Disposal;
 
-        public Task DisposeAsync()
+        public
+#if SUPPORTS_ASYNC_DISPOSABLE
+            ValueTask
+#else
+            Task
+#endif
+            DisposeAsync()
         {
             return _disposeHelper.DisposeAsync();
         }

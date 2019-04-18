@@ -26,8 +26,9 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#if !SUPPORTS_ASYNC_DISPOSABLE
+
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AI4E.Utils.Async
@@ -55,3 +56,5 @@ namespace AI4E.Utils.Async
         Task Disposal { get; }
     }
 }
+
+#endif
