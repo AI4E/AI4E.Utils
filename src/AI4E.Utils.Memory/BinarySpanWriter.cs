@@ -30,10 +30,6 @@ using System;
 using System.Buffers.Binary;
 using System.Text;
 
-#if !SUPPORTS_SPAN_APIS
-using AI4E.Utils.Memory.Compatibility;
-#endif
-
 namespace AI4E.Utils.Memory
 {
     public ref struct BinarySpanWriter
