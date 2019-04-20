@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>$(NetStandardVersions);$(NetCoreAppVersion)</TargetFrameworks>
+    <TargetFrameworks>$(FrameworkVersions)</TargetFrameworks>
     <RootNamespace>AI4E.Utils</RootNamespace>
   </PropertyGroup>
 

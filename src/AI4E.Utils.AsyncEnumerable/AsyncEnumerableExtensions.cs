@@ -330,6 +330,18 @@ namespace AI4E.Utils.AsyncEnumerable
             return new EvaluationAsyncEnumerable<T>(enumerable);
         }
 
+#if SUPPORTS_ASYNC_ENUMERABLE
+        // This is a workaround, as there is not support for async projections in System.Linq.Async yet.
+
+        public static async IAsyncEnumerable<T> Evaluate<T>(this IAsyncEnumerable<ValueTask<T>> enumerable)
+        {
+            await foreach (var t in enumerable)
+            {
+                yield return await t;
+            }
+        }
+#endif
+
         private sealed class EvaluationAsyncEnumerable<T> : IAsyncEnumerable<T>
         {
             private readonly IAsyncEnumerable<Task<T>> _enumerable;
