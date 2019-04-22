@@ -38,6 +38,11 @@ using Microsoft.Extensions.ObjectPool;
 
 namespace AI4E.Utils.Async
 {
+    /// <summary>
+    /// Represents the producer side of of a <see cref="ValueTask{TResult}"/>
+    /// providing access to the consumer side with through the <see cref="Task"/> property.
+    /// </summary>
+    /// <typeparam name="T">The type of result value.</typeparam>
     public readonly struct ValueTaskCompletionSource<T> : IEquatable<ValueTaskCompletionSource<T>>
     {
         private readonly ValueTaskSource<T> _source;
@@ -55,18 +60,35 @@ namespace AI4E.Utils.Async
             Task = new ValueTask<T>(source, token);
         }
 
+        /// <summary>
+        /// Gets a <see cref="ValueTask{TResult}"/> created by the <see cref="ValueTaskCompletionSource{T}"/>.
+        /// </summary>
         public ValueTask<T> Task { get; }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask{TResult}"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetCanceled()
         {
             return TrySetCanceled(cancellation: default);
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask{TResult}"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <param name="cancellation">A <see cref="CancellationToken"/>.</param>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetCanceled(CancellationToken cancellation)
         {
             return _source?.TryNotifyCompletion(cancellation, _token) ?? false;
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask{TResult}"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exception">The <see cref="Exception"/> that caused the task to fail.</param>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetException(Exception exception)
         {
             if (exception == null)
@@ -75,6 +97,11 @@ namespace AI4E.Utils.Async
             return _source?.TryNotifyCompletion(exception, _token) ?? false;
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask{TResult}"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exceptions">The collection of<see cref="Exception"/>s that caused the task to fail.</param>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetException(IEnumerable<Exception> exceptions)
         {
             if (exceptions == null)
@@ -93,11 +120,22 @@ namespace AI4E.Utils.Async
             return TrySetException(exception);
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask{TResult}"/> to the <c>CompletedSuccessfully</c> state.
+        /// </summary>
+        /// <param name="result">The result value to bind to the <see cref="ValueTask{TResult}"/>.</param>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetResult(T result)
         {
             return _source?.TryNotifyCompletion(result, _token) ?? false;
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask{TResult}"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask{TResult}"/> is already completed.
+        /// </exception>
         public void SetCanceled()
         {
             if (!TrySetCanceled())
@@ -106,6 +144,13 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask{TResult}"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <param name="cancellation">The <see cref="CancellationToken"/>.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask{TResult}"/> is already completed.
+        /// </exception>
         public void SetCanceled(CancellationToken cancellation)
         {
             if (!TrySetCanceled(cancellation))
@@ -114,6 +159,13 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask{TResult}"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exception">The <see cref="Exception"/> that caused the task to fail.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask{TResult}"/> is already completed.
+        /// </exception>
         public void SetException(Exception exception)
         {
             if (!TrySetException(exception))
@@ -122,6 +174,13 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask{TResult}"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exceptions">The collection of<see cref="Exception"/>s that caused the task to fail.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask{TResult}"/> is already completed.
+        /// </exception>
         public void SetException(IEnumerable<Exception> exceptions)
         {
             if (!TrySetException(exceptions))
@@ -130,6 +189,13 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask{TResult}"/> to the <c>CompletedSuccessfully</c> state.
+        /// </summary>
+        /// <param name="result">The result value to bind to the <see cref="ValueTask{TResult}"/>.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask{TResult}"/> is already completed.
+        /// </exception>
         public void SetResult(T result)
         {
             if (!TrySetResult(result))
@@ -143,38 +209,61 @@ namespace AI4E.Utils.Async
             throw new InvalidOperationException("An attempt was made to transition a value task to a final state when it had already completed");
         }
 
+        /// <summary>
+        /// Creates a new <see cref="ValueTaskCompletionSource{T}"/>.
+        /// </summary>
+        /// <returns>The created <see cref="ValueTaskCompletionSource{T}"/>.</returns>
         public static ValueTaskCompletionSource<T> Create()
         {
             var source = ValueTaskSource<T>.Allocate();
             return new ValueTaskCompletionSource<T>(source);
         }
 
+        /// <inheritdoc/>
         public bool Equals(ValueTaskCompletionSource<T> other)
         {
             return _source == other._source && _token == other._token;
         }
 
+        /// <inheritdoc/>
         public override bool Equals(object obj)
         {
             return obj is ValueTaskCompletionSource<T> valueTaskCompletionSource && Equals(valueTaskCompletionSource);
         }
 
+        /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return (_source?.GetHashCode() ?? 0) * 34556421 + _token.GetHashCode();
+            return (_source, _token).GetHashCode();
         }
 
+        /// <summary>
+        /// Gets a boolean value indicating whether two <see cref="ValueTaskCompletionSource{T}"/> are equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="ValueTaskCompletionSource{T}"/>.</param>
+        /// <param name="right">The second <see cref="ValueTaskCompletionSource{T}"/>.</param>
+        /// <returns>True if <paramref name="left"/> equals <paramref name="right"/>, false otherwise.</returns>
         public static bool operator ==(in ValueTaskCompletionSource<T> left, in ValueTaskCompletionSource<T> right)
         {
             return left.Equals(right);
         }
 
+        /// <summary>
+        /// Gets a boolean value indicating whether two <see cref="ValueTaskCompletionSource{T}"/> are not equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="ValueTaskCompletionSource{T}"/>.</param>
+        /// <param name="right">The second <see cref="ValueTaskCompletionSource{T}"/>.</param>
+        /// <returns>True if <paramref name="left"/> does not equal <paramref name="right"/>, false otherwise.</returns>
         public static bool operator !=(in ValueTaskCompletionSource<T> left, in ValueTaskCompletionSource<T> right)
         {
             return !left.Equals(right);
         }
     }
 
+    /// <summary>
+    /// Represents the producer side of of a <see cref="ValueTask"/>
+    /// providing access to the consumer side with through the <see cref="Task"/> property.
+    /// </summary>
     public readonly struct ValueTaskCompletionSource : IEquatable<ValueTaskCompletionSource>
     {
         private readonly ValueTaskSource<byte> _source;
@@ -192,18 +281,35 @@ namespace AI4E.Utils.Async
             Task = new ValueTask(source, token);
         }
 
+        /// <summary>
+        /// Gets a <see cref="ValueTask"/> created by the <see cref="ValueTaskCompletionSource"/>.
+        /// </summary>
         public ValueTask Task { get; }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetCanceled()
         {
             return TrySetCanceled(cancellation: default);
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <param name="cancellation">A <see cref="CancellationToken"/>.</param>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetCanceled(CancellationToken cancellation)
         {
             return _source?.TryNotifyCompletion(cancellation, _token) ?? false;
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exception">The <see cref="Exception"/> that caused the task to fail.</param>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetException(Exception exception)
         {
             if (exception == null)
@@ -212,6 +318,11 @@ namespace AI4E.Utils.Async
             return _source?.TryNotifyCompletion(exception, _token) ?? false;
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exceptions">The collection of<see cref="Exception"/>s that caused the task to fail.</param>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetException(IEnumerable<Exception> exceptions)
         {
             if (exceptions == null)
@@ -230,11 +341,21 @@ namespace AI4E.Utils.Async
             return TrySetException(exception);
         }
 
+        /// <summary>
+        /// Attempts to transition the underlying <see cref="ValueTask"/> to the <c>CompletedSuccessfully</c> state.
+        /// </summary>
+        /// <returns>A boolean value indicating whether the operation was successful.</returns>
         public bool TrySetResult()
         {
             return _source?.TryNotifyCompletion(0, _token) ?? false;
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask"/> is already completed.
+        /// </exception>
         public void SetCanceled()
         {
             if (!TrySetCanceled())
@@ -243,6 +364,13 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask"/> to the <c>Canceled</c> state.
+        /// </summary>
+        /// <param name="cancellation">The <see cref="CancellationToken"/>.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask"/> is already completed.
+        /// </exception>
         public void SetCanceled(CancellationToken cancellation)
         {
             if (!TrySetCanceled(cancellation))
@@ -251,6 +379,13 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exception">The <see cref="Exception"/> that caused the task to fail.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask"/> is already completed.
+        /// </exception>
         public void SetException(Exception exception)
         {
             if (!TrySetException(exception))
@@ -259,6 +394,13 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask"/> to the <c>Faulted</c> state.
+        /// </summary>
+        /// <param name="exceptions">The collection of<see cref="Exception"/>s that caused the task to fail.</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask"/> is already completed.
+        /// </exception>
         public void SetException(IEnumerable<Exception> exceptions)
         {
             if (!TrySetException(exceptions))
@@ -267,6 +409,12 @@ namespace AI4E.Utils.Async
             }
         }
 
+        /// <summary>
+        /// Transitions the underlying <see cref="ValueTask"/> to the <c>CompletedSuccessfully</c> state.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown if the <see cref="ValueTask"/> is already completed.
+        /// </exception>
         public void SetResult()
         {
             if (!TrySetResult())
@@ -280,32 +428,51 @@ namespace AI4E.Utils.Async
             throw new InvalidOperationException("An attempt was made to transition a value task to a final state when it had already completed");
         }
 
+        /// <summary>
+        /// Creates a new <see cref="ValueTaskCompletionSource"/>.
+        /// </summary>
+        /// <returns>The created <see cref="ValueTaskCompletionSource"/>.</returns>
         public static ValueTaskCompletionSource Create()
         {
             var source = ValueTaskSource<byte>.Allocate();
             return new ValueTaskCompletionSource(source);
         }
 
+        /// <inheritdoc/>
         public bool Equals(ValueTaskCompletionSource other)
         {
             return _source == other._source && _token == other._token;
         }
 
+        /// <inheritdoc/>
         public override bool Equals(object obj)
         {
             return obj is ValueTaskCompletionSource valueTaskCompletionSource && Equals(valueTaskCompletionSource);
         }
 
+        /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return (_source?.GetHashCode() ?? 0) * 34556421 + _token.GetHashCode();
+            return (_source, _token).GetHashCode();
         }
 
+        /// <summary>
+        /// Gets a boolean value indicating whether two <see cref="ValueTaskCompletionSource"/> are equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="ValueTaskCompletionSource"/>.</param>
+        /// <param name="right">The second <see cref="ValueTaskCompletionSource"/>.</param>
+        /// <returns>True if <paramref name="left"/> equals <paramref name="right"/>, false otherwise.</returns>
         public static bool operator ==(in ValueTaskCompletionSource left, in ValueTaskCompletionSource right)
         {
             return left.Equals(right);
         }
 
+        /// <summary>
+        /// Gets a boolean value indicating whether two <see cref="ValueTaskCompletionSource"/> are not equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="ValueTaskCompletionSource"/>.</param>
+        /// <param name="right">The second <see cref="ValueTaskCompletionSource"/>.</param>
+        /// <returns>True if <paramref name="left"/> does not equal <paramref name="right"/>, false otherwise.</returns>
         public static bool operator !=(in ValueTaskCompletionSource left, in ValueTaskCompletionSource right)
         {
             return !left.Equals(right);
@@ -486,12 +653,12 @@ namespace AI4E.Utils.Async
 
             var exception = _state._exception;
 
-            if(exception == null)
+            if (exception == null)
             {
                 return ValueTaskSourceStatus.Succeeded;
             }
 
-            if(exception is OperationCanceledException)
+            if (exception is OperationCanceledException)
             {
                 return ValueTaskSourceStatus.Canceled;
             }
