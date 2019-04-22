@@ -452,7 +452,7 @@ namespace AI4E.Utils.Async
                     executionContextRunState.PreviousContinuation = previousContinuation;
                     executionContextRunState.State = _state._continuationState;
 
-                    void ExecutionContextCallback(object runState)
+                    static void ExecutionContextCallback(object runState)
                     {
                         var t = (ExecutionContextRunState)runState;
                         try
@@ -484,7 +484,19 @@ namespace AI4E.Utils.Async
                 return ValueTaskSourceStatus.Pending;
             }
 
-            return _state._exception != null ? ValueTaskSourceStatus.Succeeded : ValueTaskSourceStatus.Faulted;
+            var exception = _state._exception;
+
+            if(exception == null)
+            {
+                return ValueTaskSourceStatus.Succeeded;
+            }
+
+            if(exception is OperationCanceledException)
+            {
+                return ValueTaskSourceStatus.Canceled;
+            }
+
+            return ValueTaskSourceStatus.Faulted;
         }
 
         public void OnCompleted(Action<object> continuation, object state, short token, ValueTaskSourceOnCompletedFlags flags)
@@ -520,7 +532,7 @@ namespace AI4E.Utils.Async
             _state._continuationState = state;
             // Remember continuation to be executed on completed (if not already completed, in case of which
             // continuation will be set to CallbackCompleted)
-            var previousContinuation = Interlocked.CompareExchange(ref continuation, continuation, null);
+            var previousContinuation = Interlocked.CompareExchange(ref _state._continuation, continuation, null);
             if (previousContinuation != null)
             {
                 if (!ReferenceEquals(previousContinuation, _callbackCompleted))
@@ -543,6 +555,8 @@ namespace AI4E.Utils.Async
             {
                 ThrowMultipleContinuations();
             }
+
+            // TODO: Should this block until the result is available?
 
             var exception = _state._exception;
             var result = ResetAndReleaseOperation();
@@ -600,7 +614,7 @@ namespace AI4E.Utils.Async
                     synchronizationContextPostState.Continuation = continuation;
                     synchronizationContextPostState.State = state;
 
-                    void PostCallback(object s)
+                    static void PostCallback(object s)
                     {
                         var t = (SynchronizationContextPostState)s;
                         try
