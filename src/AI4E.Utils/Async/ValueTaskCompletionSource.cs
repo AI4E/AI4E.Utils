@@ -759,6 +759,7 @@ namespace AI4E.Utils.Async
             {
                 Token++;
                 _state = new State();
+                _resultEvent.Reset();
             }
             _pool.Return(this);
             return result;
