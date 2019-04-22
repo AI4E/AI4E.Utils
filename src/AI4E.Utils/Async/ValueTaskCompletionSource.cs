@@ -518,6 +518,7 @@ namespace AI4E.Utils.Async
         #endregion
 
         private State _state;
+        private readonly ManualResetEvent _resultEvent = new ManualResetEvent(false);
 
         internal bool Exhausted { get; private set; }
         internal short Token { get; private set; }
@@ -534,48 +535,34 @@ namespace AI4E.Utils.Async
             Debug.Assert(result._state._continuationState == default);
             Debug.Assert(result._state._executionContext == default);
             Debug.Assert(result._state._scheduler == default);
+            Debug.Assert(!result._resultEvent.WaitOne(0));
             return result;
         }
 
         internal bool TryNotifyCompletion(T result, short token)
         {
-            if (token != Token || !TrySetCompleted(exception: null, result))
-            {
-                return false;
-            }
-
-            ExecuteContinuation();
-
-            return true;
+            return TrySetCompleted(exception: null, result, token);
         }
 
         internal bool TryNotifyCompletion(CancellationToken cancellation, short token)
         {
-            if (token != Token || !TrySetCompleted(new OperationCanceledException(cancellation), result: default))
-            {
-                return false;
-            }
-
-            ExecuteContinuation();
-            return true;
+            return TrySetCompleted(new OperationCanceledException(cancellation), result: default, token);
         }
 
         internal bool TryNotifyCompletion(Exception exception, short token)
         {
             Debug.Assert(exception != null);
 
-            if (token != Token || !TrySetCompleted(exception, result: default))
+            return TrySetCompleted(exception, result: default, token);
+        }
+
+        private bool TrySetCompleted(Exception exception, T result, short token)
+        {
+            if (token != Token)
             {
                 return false;
             }
 
-            ExecuteContinuation();
-
-            return true;
-        }
-
-        private bool TrySetCompleted(Exception exception, T result)
-        {
             if (_state._completing != 0)
             {
                 return false;
@@ -591,6 +578,9 @@ namespace AI4E.Utils.Async
             _state._exception = exception;
             _state._result = result;
             Volatile.Write(ref _state._completed, true);
+            _resultEvent.Set();
+
+            ExecuteContinuation();
 
             return true;
         }
@@ -723,7 +713,13 @@ namespace AI4E.Utils.Async
                 ThrowMultipleContinuations();
             }
 
-            // TODO: Should this block until the result is available?
+            // If we are not completed yet, block the current thread until we are.
+            if (!Volatile.Read(ref _state._completed))
+            {
+                _resultEvent.WaitOne();
+
+                Debug.Assert(_state._completed);
+            }
 
             var exception = _state._exception;
             var result = ResetAndReleaseOperation();

@@ -1005,17 +1005,21 @@ namespace AI4E.Utils.Async
         }
 
         [TestMethod]
-        public void GetResultAfterContinuationThrowsTest()
+        public void GetResultAfterContinuationTest()
         {
             var valueTaskCompletionSource = ValueTaskCompletionSource<object>.Create();
             var valueTask = valueTaskCompletionSource.Task;
+            var result = new object();
+
+            Task.Run(async () =>
+            {
+                await Task.Delay(20);
+                valueTaskCompletionSource.SetResult(result);
+            });
 
             valueTask.GetAwaiter().OnCompleted(() => { });
 
-            Assert.ThrowsException<InvalidOperationException>(() =>
-            {
-                valueTask.GetAwaiter().GetResult(); // TODO: Should this block until the result is available?
-            });
+            Assert.AreSame(result, valueTask.GetAwaiter().GetResult());
         }
 
         [TestMethod]

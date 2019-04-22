@@ -1000,11 +1000,17 @@ namespace AI4E.Utils.Async
             var valueTaskCompletionSource = ValueTaskCompletionSource.Create();
             var valueTask = valueTaskCompletionSource.Task;
 
+            Task.Run(async () =>
+            {
+                await Task.Delay(20);
+                valueTaskCompletionSource.SetResult();
+            });
+
             valueTask.GetAwaiter().OnCompleted(() => { });
 
             Assert.ThrowsException<InvalidOperationException>(() =>
             {
-                valueTask.GetAwaiter().GetResult(); // TODO: Should this block until the result is available?
+                valueTask.GetAwaiter().GetResult();
             });
         }
 
