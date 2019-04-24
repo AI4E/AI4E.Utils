@@ -482,9 +482,6 @@ namespace AI4E.Utils.Async
     // Based on: http://tooslowexception.com/implementing-custom-ivaluetasksource-async-without-allocations/
     internal sealed class ValueTaskSource<T> : IValueTaskSource<T>, IValueTaskSource
     {
-        /// Sentinel object used to indicate that the operation has completed prior to OnCompleted being called.
-        private static readonly Action<object> _callbackCompleted = _ => { Debug.Assert(false, "Should not be invoked"); };
-
         #region Pooling
 
         static ValueTaskSource()
@@ -518,7 +515,6 @@ namespace AI4E.Utils.Async
         #endregion
 
         private State _state;
-        private readonly ManualResetEvent _resultEvent = new ManualResetEvent(false);
 
         internal bool Exhausted { get; private set; }
         internal short Token { get; private set; }
@@ -527,15 +523,13 @@ namespace AI4E.Utils.Async
         {
             var result = _pool.Get();
             Debug.Assert(!result.Exhausted);
-            Debug.Assert(result._state._continuation == default);
             Debug.Assert(EqualityComparer<T>.Default.Equals(result._state._result, default));
-            Debug.Assert(result._state._completing == default);
-            Debug.Assert(result._state._completed == default);
             Debug.Assert(result._state._exception == default);
+            Debug.Assert(result._state._completed == default);
+            Debug.Assert(result._state._continuation == default);
             Debug.Assert(result._state._continuationState == default);
             Debug.Assert(result._state._executionContext == default);
             Debug.Assert(result._state._scheduler == default);
-            Debug.Assert(!result._resultEvent.WaitOne(0));
             return result;
         }
 
@@ -558,72 +552,128 @@ namespace AI4E.Utils.Async
 
         private bool TrySetCompleted(Exception exception, T result, short token)
         {
-            if (token != Token)
+            Action<object> continuation;
+            object continuationState;
+            ExecutionContext executionContext;
+            object scheduler;
+
+            lock (this)
             {
-                return false;
+                if (token != Token || _state._completed)
+                {
+                    return false;
+                }
+
+                _state._exception = exception;
+                _state._result = result;
+                _state._completed = true;
+
+                Monitor.PulseAll(this);
+
+                continuation = _state._continuation;
+                continuationState = _state._continuationState;
+                executionContext = _state._executionContext;
+                scheduler = _state._scheduler;
             }
 
-            if (_state._completing != 0)
-            {
-                return false;
-            }
-
-            var completing = Interlocked.Exchange(ref _state._completing, 1);
-
-            if (completing != 0)
-            {
-                return false;
-            }
-
-            _state._exception = exception;
-            _state._result = result;
-            Volatile.Write(ref _state._completed, true);
-            _resultEvent.Set();
-
-            ExecuteContinuation();
+            ExecuteContinuation(continuation, continuationState, executionContext, scheduler, forceAsync: false);
 
             return true;
         }
 
-        private void ExecuteContinuation()
+        private void ExecuteContinuation(
+            Action<object> continuation,
+            object continuationState,
+            ExecutionContext executionContext,
+            object scheduler,
+            bool forceAsync)
         {
-            // Mark operation as completed
-            var previousContinuation = Interlocked.CompareExchange(ref _state._continuation, _callbackCompleted, null);
-            if (previousContinuation != null)
+            if (continuation == null)
+                return;
+
+            if (executionContext != null)
             {
-                // Async work completed, continue with... continuation
-                var executionContext = _state._executionContext;
-                if (executionContext == null)
-                {
-                    InvokeContinuation(previousContinuation, _state._continuationState, forceAsync: false);
-                }
-                else
-                {
-                    // This case should be relatively rare, as the async Task/ValueTask method builders
-                    // use the awaiter's UnsafeOnCompleted, so this will only happen with code that
-                    // explicitly uses the awaiter's OnCompleted instead.
-                    _state._executionContext = null;
+                // This case should be relatively rare, as the async Task/ValueTask method builders
+                // use the awaiter's UnsafeOnCompleted, so this will only happen with code that
+                // explicitly uses the awaiter's OnCompleted instead.
 
-                    var executionContextRunState = _executionContextRunStatePool.Get();
-                    executionContextRunState.ValueTaskSource = this;
-                    executionContextRunState.PreviousContinuation = previousContinuation;
-                    executionContextRunState.State = _state._continuationState;
+                var executionContextRunState = _executionContextRunStatePool.Get();
+                executionContextRunState.ValueTaskSource = this;
+                executionContextRunState.Continuation = continuation;
+                executionContextRunState.ContinuationState = continuationState;
+                executionContextRunState.Scheduler = scheduler;
 
-                    static void ExecutionContextCallback(object runState)
+                static void ExecutionContextCallback(object runState)
+                {
+                    var t = (ExecutionContextRunState)runState;
+                    try
                     {
-                        var t = (ExecutionContextRunState)runState;
-                        try
-                        {
-                            t.ValueTaskSource.InvokeContinuation(t.PreviousContinuation, t.State, forceAsync: false);
-                        }
-                        finally
-                        {
-                            _executionContextRunStatePool.Return(t);
-                        }
+                        t.ValueTaskSource.ExecuteContinuation(t.Continuation, t.ContinuationState, executionContext: null, t.Scheduler, forceAsync: false);
                     }
-
-                    ExecutionContext.Run(executionContext, ExecutionContextCallback, executionContextRunState);
+                    finally
+                    {
+                        _executionContextRunStatePool.Return(t);
+                    }
                 }
+
+                ExecutionContext.Run(executionContext, ExecutionContextCallback, executionContextRunState);
+            }
+            else if (scheduler is SynchronizationContext synchronizationContext)
+            {
+                var synchronizationContextPostState = _synchronizationContextPostStatePool.Get();
+                synchronizationContextPostState.Continuation = continuation;
+                synchronizationContextPostState.ContinuationState = continuationState;
+
+                static void PostCallback(object s)
+                {
+                    var t = (SynchronizationContextPostState)s;
+                    try
+                    {
+                        t.Continuation(t.ContinuationState);
+                    }
+                    finally
+                    {
+                        _synchronizationContextPostStatePool.Return(t);
+                    }
+                }
+
+                synchronizationContext.Post(PostCallback, synchronizationContextPostState);
+            }
+            else if (scheduler is TaskScheduler taskScheduler)
+            {
+                Task.Factory.StartNew(
+                    continuation,
+                    continuationState,
+                    CancellationToken.None,
+                    TaskCreationOptions.DenyChildAttach,
+                    taskScheduler);
+            }
+            else if (forceAsync)
+            {
+                ExecuteContinuation(continuation, continuationState);
+            }
+            else
+            {
+                Debug.Assert(scheduler is null);
+
+                continuation(continuationState);
+            }
+        }
+
+        private static void ExecuteContinuation(Action<object> continuation, object continuationState)
+        {
+            var synchronizationContext = SynchronizationContext.Current;
+
+            try
+            {
+                SynchronizationContext.SetSynchronizationContext(null);
+
+                var threadPoolWorkItem = (WaitCallback)Delegate.CreateDelegate(typeof(WaitCallback), continuation.Target, continuation.Method);
+                ThreadPool.QueueUserWorkItem(threadPoolWorkItem, continuationState);
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(synchronizationContext);
             }
         }
 
@@ -631,17 +681,24 @@ namespace AI4E.Utils.Async
 
         public ValueTaskSourceStatus GetStatus(short token)
         {
-            if (token != Token)
+            bool completed;
+            Exception exception;
+
+            lock (this)
             {
-                ThrowMultipleContinuations();
+                if (token != Token)
+                {
+                    ThrowMultipleContinuations();
+                }
+
+                completed = _state._completed;
+                exception = _state._exception;
             }
 
-            if (!Volatile.Read(ref _state._completed))
+            if (!completed)
             {
                 return ValueTaskSourceStatus.Pending;
             }
-
-            var exception = _state._exception;
 
             if (exception == null)
             {
@@ -656,80 +713,118 @@ namespace AI4E.Utils.Async
             return ValueTaskSourceStatus.Faulted;
         }
 
+        private bool TryGetNonDefaultTaskScheduler(out TaskScheduler taskScheduler)
+        {
+            taskScheduler = TaskScheduler.Current;
+
+            if (taskScheduler == TaskScheduler.Default)
+            {
+                taskScheduler = null;
+            }
+
+            return taskScheduler != null;
+        }
+
+        private bool TryGetNonDefaultSynchronizationContext(out SynchronizationContext synchronizationContext)
+        {
+            synchronizationContext = SynchronizationContext.Current;
+
+            if (synchronizationContext != null && synchronizationContext.GetType() == typeof(SynchronizationContext))
+            {
+                synchronizationContext = null;
+            }
+
+            return synchronizationContext != null;
+        }
+
+        private object GetScheduler()
+        {
+            if (TryGetNonDefaultSynchronizationContext(out var synchronizationContext))
+            {
+                return synchronizationContext;
+            }
+
+            if (TryGetNonDefaultTaskScheduler(out var taskScheduler))
+            {
+                return taskScheduler;
+            }
+
+            return null;
+        }
+
         public void OnCompleted(Action<object> continuation, object state, short token, ValueTaskSourceOnCompletedFlags flags)
         {
-            if (token != Token)
+            lock (this)
             {
-                ThrowMultipleContinuations();
-            }
-
-            if ((flags & ValueTaskSourceOnCompletedFlags.FlowExecutionContext) != 0)
-            {
-                _state._executionContext = ExecutionContext.Capture();
-            }
-
-            if ((flags & ValueTaskSourceOnCompletedFlags.UseSchedulingContext) != 0)
-            {
-                var sc = SynchronizationContext.Current;
-                if (sc != null && sc.GetType() != typeof(SynchronizationContext))
+                if (token != Token || _state._continuation != null)
                 {
-                    _state._scheduler = sc;
-                }
-                else
-                {
-                    var ts = TaskScheduler.Current;
-                    if (ts != TaskScheduler.Default)
-                    {
-                        _state._scheduler = ts;
-                    }
-                }
-            }
-
-            // Remember current state
-            _state._continuationState = state;
-            // Remember continuation to be executed on completed (if not already completed, in case of which
-            // continuation will be set to CallbackCompleted)
-            var previousContinuation = Interlocked.CompareExchange(ref _state._continuation, continuation, null);
-            if (previousContinuation != null)
-            {
-                if (!ReferenceEquals(previousContinuation, _callbackCompleted))
                     ThrowMultipleContinuations();
+                }
 
-                // Lost the race condition and the operation has now already completed.
-                // We need to invoke the continuation, but it must be asynchronously to
-                // avoid a stack dive.  However, since all of the queueing mechanisms flow
-                // ExecutionContext, and since we're still in the same context where we
-                // captured it, we can just ignore the one we captured.
-                _state._executionContext = null;
-                _state._continuationState = null; // we have the state in "state"; no need for the one in UserToken
-                InvokeContinuation(continuation, state, forceAsync: true);
+                if (!_state._completed)
+                {
+                    if ((flags & ValueTaskSourceOnCompletedFlags.FlowExecutionContext) != 0)
+                    {
+                        _state._executionContext = ExecutionContext.Capture();
+                    }
+
+                    if ((flags & ValueTaskSourceOnCompletedFlags.UseSchedulingContext) != 0)
+                    {
+                        _state._scheduler = GetScheduler();
+                    }
+
+                    // Remember continuation and state
+                    _state._continuationState = state;
+                    _state._continuation = continuation;
+                    return;
+                }
             }
+
+            var scheduler = ((flags & ValueTaskSourceOnCompletedFlags.UseSchedulingContext) != 0) ? GetScheduler() : null;
+            ExecuteContinuation(continuation, state, executionContext: null, scheduler, forceAsync: true);
         }
 
         public T GetResult(short token)
         {
-            if (token != Token)
+            Exception exception;
+            T result;
+
+            lock (this)
             {
-                ThrowMultipleContinuations();
+                // If we are not yet completed, block the current thread until we are.
+                if (!_state._completed)
+                {
+                    Monitor.Wait(this);
+                    Debug.Assert(_state._completed);
+                }
+
+                if (token != Token)
+                {
+                    ThrowMultipleContinuations();
+                }
+
+                exception = _state._exception;
+                result = _state._result;
+
+                if (Token == short.MaxValue)
+                {
+                    Exhausted = true;
+                }
+                else
+                {
+                    Token++;
+                    _state = new State();
+                }
             }
 
-            // If we are not completed yet, block the current thread until we are.
-            if (!Volatile.Read(ref _state._completed))
-            {
-                _resultEvent.WaitOne();
-
-                Debug.Assert(_state._completed);
-            }
-
-            var exception = _state._exception;
-            var result = ResetAndReleaseOperation();
+            _pool.Return(this);
 
             if (exception != null)
             {
                 var exceptionDispatchInfo = ExceptionDispatchInfo.Capture(exception);
                 exceptionDispatchInfo.Throw();
 
-                Debug.Assert(false);
+                Debug.Fail("This must never be reached.");
                 throw exception;
             }
 
@@ -748,87 +843,24 @@ namespace AI4E.Utils.Async
             throw new InvalidOperationException("Multiple awaiters are not allowed");
         }
 
-        private T ResetAndReleaseOperation()
-        {
-            var result = _state._result;
-            if (Token == short.MaxValue)
-            {
-                Exhausted = true;
-            }
-            else
-            {
-                Token++;
-                _state = new State();
-                _resultEvent.Reset();
-            }
-            _pool.Return(this);
-            return result;
-        }
-
-        private void InvokeContinuation(Action<object> continuation, object state, bool forceAsync)
-        {
-            if (continuation == null)
-                return;
-
-            if (_state._scheduler != null)
-            {
-                if (_state._scheduler is SynchronizationContext synchronizationContext)
-                {
-                    var synchronizationContextPostState = _synchronizationContextPostStatePool.Get();
-                    synchronizationContextPostState.Continuation = continuation;
-                    synchronizationContextPostState.State = state;
-
-                    static void PostCallback(object s)
-                    {
-                        var t = (SynchronizationContextPostState)s;
-                        try
-                        {
-                            t.Continuation(t.State);
-                        }
-                        finally
-                        {
-                            _synchronizationContextPostStatePool.Return(t);
-                        }
-                    }
-
-                    synchronizationContext.Post(PostCallback, synchronizationContextPostState);
-                }
-                else
-                {
-                    Debug.Assert(_state._scheduler is TaskScheduler, $"Expected TaskScheduler, got {_state._scheduler}");
-                    Task.Factory.StartNew(continuation, state, CancellationToken.None, TaskCreationOptions.DenyChildAttach, (TaskScheduler)_state._scheduler);
-                }
-            }
-            else if (forceAsync)
-            {
-                var threadPoolWorkItem = (WaitCallback)Delegate.CreateDelegate(typeof(WaitCallback), continuation.Target, continuation.Method);
-
-                ThreadPool.QueueUserWorkItem(threadPoolWorkItem, state);
-            }
-            else
-            {
-                continuation(state);
-            }
-        }
-
         private sealed class SynchronizationContextPostState
         {
             public Action<object> Continuation { get; set; }
-            public object State { get; set; }
+            public object ContinuationState { get; set; }
         }
 
         private sealed class ExecutionContextRunState
         {
             public ValueTaskSource<T> ValueTaskSource { get; set; }
-            public Action<object> PreviousContinuation { get; set; }
-            public object State { get; set; }
+            public Action<object> Continuation { get; set; }
+            public object ContinuationState { get; set; }
+            public object Scheduler { get; set; }
         }
 
         private struct State
         {
             public Action<object> _continuation;
             public T _result;
-            public int _completing;
             public bool _completed;
             public Exception _exception;
             public object _continuationState;

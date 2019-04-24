@@ -995,7 +995,7 @@ namespace AI4E.Utils.Async
         }
 
         [TestMethod]
-        public void GetResultAfterContinuationThrowsTest()
+        public void GetResultAfterContinuationTest()
         {
             var valueTaskCompletionSource = ValueTaskCompletionSource.Create();
             var valueTask = valueTaskCompletionSource.Task;
@@ -1007,11 +1007,7 @@ namespace AI4E.Utils.Async
             });
 
             valueTask.GetAwaiter().OnCompleted(() => { });
-
-            Assert.ThrowsException<InvalidOperationException>(() =>
-            {
-                valueTask.GetAwaiter().GetResult();
-            });
+            valueTask.GetAwaiter().GetResult();
         }
 
         [TestMethod]

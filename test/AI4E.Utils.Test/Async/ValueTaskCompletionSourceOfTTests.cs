@@ -1018,7 +1018,6 @@ namespace AI4E.Utils.Async
             });
 
             valueTask.GetAwaiter().OnCompleted(() => { });
-
             Assert.AreSame(result, valueTask.GetAwaiter().GetResult());
         }
 
