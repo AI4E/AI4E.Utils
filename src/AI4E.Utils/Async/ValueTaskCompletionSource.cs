@@ -514,7 +514,13 @@ namespace AI4E.Utils.Async
 
         #endregion
 
-        private State _state;
+        public Action<object> _continuation;
+        public T _result;
+        public bool _completed;
+        public Exception _exception;
+        public object _continuationState;
+        public ExecutionContext _executionContext;
+        public object _scheduler;
 
         internal bool Exhausted { get; private set; }
         internal short Token { get; private set; }
@@ -523,13 +529,13 @@ namespace AI4E.Utils.Async
         {
             var result = _pool.Get();
             Debug.Assert(!result.Exhausted);
-            Debug.Assert(EqualityComparer<T>.Default.Equals(result._state._result, default));
-            Debug.Assert(result._state._exception == default);
-            Debug.Assert(result._state._completed == default);
-            Debug.Assert(result._state._continuation == default);
-            Debug.Assert(result._state._continuationState == default);
-            Debug.Assert(result._state._executionContext == default);
-            Debug.Assert(result._state._scheduler == default);
+            Debug.Assert(EqualityComparer<T>.Default.Equals(result._result, default));
+            Debug.Assert(result._exception == default);
+            Debug.Assert(result._completed == default);
+            Debug.Assert(result._continuation == default);
+            Debug.Assert(result._continuationState == default);
+            Debug.Assert(result._executionContext == default);
+            Debug.Assert(result._scheduler == default);
             return result;
         }
 
@@ -557,23 +563,24 @@ namespace AI4E.Utils.Async
             ExecutionContext executionContext;
             object scheduler;
 
+            // Use this object for locking, as this is safe here (internal type) and we do not need to allocate a mutex object.
             lock (this)
             {
-                if (token != Token || _state._completed)
+                if (token != Token || _completed)
                 {
                     return false;
                 }
 
-                _state._exception = exception;
-                _state._result = result;
-                _state._completed = true;
+                _exception = exception;
+                _result = result;
+                _completed = true;
 
                 Monitor.PulseAll(this);
 
-                continuation = _state._continuation;
-                continuationState = _state._continuationState;
-                executionContext = _state._executionContext;
-                scheduler = _state._scheduler;
+                continuation = _continuation;
+                continuationState = _continuationState;
+                executionContext = _executionContext;
+                scheduler = _scheduler;
             }
 
             ExecuteContinuation(continuation, continuationState, executionContext, scheduler, forceAsync: false);
@@ -684,6 +691,7 @@ namespace AI4E.Utils.Async
             bool completed;
             Exception exception;
 
+            // Use this object for locking, as this is safe here (internal type) and we do not need to allocate a mutex object.
             lock (this)
             {
                 if (token != Token)
@@ -691,8 +699,8 @@ namespace AI4E.Utils.Async
                     ThrowMultipleContinuations();
                 }
 
-                completed = _state._completed;
-                exception = _state._exception;
+                completed = _completed;
+                exception = _exception;
             }
 
             if (!completed)
@@ -754,28 +762,29 @@ namespace AI4E.Utils.Async
 
         public void OnCompleted(Action<object> continuation, object state, short token, ValueTaskSourceOnCompletedFlags flags)
         {
+            // Use this object for locking, as this is safe here (internal type) and we do not need to allocate a mutex object.
             lock (this)
             {
-                if (token != Token || _state._continuation != null)
+                if (token != Token || _continuation != null)
                 {
                     ThrowMultipleContinuations();
                 }
 
-                if (!_state._completed)
+                if (!_completed)
                 {
                     if ((flags & ValueTaskSourceOnCompletedFlags.FlowExecutionContext) != 0)
                     {
-                        _state._executionContext = ExecutionContext.Capture();
+                        _executionContext = ExecutionContext.Capture();
                     }
 
                     if ((flags & ValueTaskSourceOnCompletedFlags.UseSchedulingContext) != 0)
                     {
-                        _state._scheduler = GetScheduler();
+                        _scheduler = GetScheduler();
                     }
 
                     // Remember continuation and state
-                    _state._continuationState = state;
-                    _state._continuation = continuation;
+                    _continuationState = state;
+                    _continuation = continuation;
                     return;
                 }
             }
@@ -789,13 +798,14 @@ namespace AI4E.Utils.Async
             Exception exception;
             T result;
 
+            // Use this object for locking, as this is safe here (internal type) and we do not need to allocate a mutex object.
             lock (this)
             {
                 // If we are not yet completed, block the current thread until we are.
-                if (!_state._completed)
+                if (!_completed)
                 {
                     Monitor.Wait(this);
-                    Debug.Assert(_state._completed);
+                    Debug.Assert(_completed);
                 }
 
                 if (token != Token)
@@ -803,8 +813,8 @@ namespace AI4E.Utils.Async
                     ThrowMultipleContinuations();
                 }
 
-                exception = _state._exception;
-                result = _state._result;
+                exception = _exception;
+                result = _result;
 
                 if (Token == short.MaxValue)
                 {
@@ -813,7 +823,13 @@ namespace AI4E.Utils.Async
                 else
                 {
                     Token++;
-                    _state = new State();
+                    _continuation = default;
+                    _result = default;
+                    _completed = default;
+                    _exception = default;
+                    _continuationState = default;
+                    _executionContext = default;
+                    _scheduler = default;
                 }
             }
 
@@ -855,17 +871,6 @@ namespace AI4E.Utils.Async
             public Action<object> Continuation { get; set; }
             public object ContinuationState { get; set; }
             public object Scheduler { get; set; }
-        }
-
-        private struct State
-        {
-            public Action<object> _continuation;
-            public T _result;
-            public bool _completed;
-            public Exception _exception;
-            public object _continuationState;
-            public ExecutionContext _executionContext;
-            public object _scheduler;
         }
     }
 }
