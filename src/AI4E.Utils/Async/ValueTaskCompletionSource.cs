@@ -546,7 +546,7 @@ namespace AI4E.Utils.Async
 
         internal bool TryNotifyCompletion(CancellationToken cancellation, short token)
         {
-            return TrySetCompleted(new OperationCanceledException(cancellation), result: default, token);
+            return TrySetCompleted(new TaskCanceledException(), result: default, token); // TODO: Is there a way, we can pass in the cancellation token here?
         }
 
         internal bool TryNotifyCompletion(Exception exception, short token)
@@ -713,7 +713,7 @@ namespace AI4E.Utils.Async
                 return ValueTaskSourceStatus.Succeeded;
             }
 
-            if (exception is OperationCanceledException)
+            if (exception is TaskCanceledException)
             {
                 return ValueTaskSourceStatus.Canceled;
             }

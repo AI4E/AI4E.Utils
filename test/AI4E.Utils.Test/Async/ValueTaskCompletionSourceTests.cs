@@ -657,7 +657,7 @@ namespace AI4E.Utils.Async
             Assert.IsTrue(valueTask.IsCompleted);
             Assert.IsTrue(valueTask.IsCanceled);
             Assert.IsFalse(valueTask.IsCompletedSuccessfully);
-            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+            await Assert.ThrowsExceptionAsync<TaskCanceledException>(async () =>
             {
                 await valueTask;
             });
@@ -675,7 +675,7 @@ namespace AI4E.Utils.Async
             Assert.IsTrue(valueTask.IsCompleted);
             Assert.IsTrue(valueTask.IsCanceled);
             Assert.IsFalse(valueTask.IsCompletedSuccessfully);
-            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+            await Assert.ThrowsExceptionAsync<TaskCanceledException>(async () =>
             {
                 await valueTask;
             });
