@@ -31,6 +31,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AI4E.Utils.Async;
 using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils
@@ -136,7 +137,7 @@ namespace AI4E.Utils
                     return new ValueTask<IEnumerable<T>>(result);
                 }
 
-                var taskCompletionSource = new TaskCompletionSource<IEnumerable<T>>();
+                var taskCompletionSource = ValueTaskCompletionSource<IEnumerable<T>>.Create();
 
                 Task.WhenAll(tasksToAwait).ContinueWith(t =>
                 {
@@ -154,7 +155,7 @@ namespace AI4E.Utils
                     }
                 });
 
-                return new ValueTask<IEnumerable<T>>(taskCompletionSource.Task);
+                return taskCompletionSource.Task;
             }
 
             // We do not capture tasks to prevent allocation for the captured data.

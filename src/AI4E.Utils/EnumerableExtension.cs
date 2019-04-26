@@ -30,7 +30,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils
 {
@@ -217,6 +216,11 @@ namespace AI4E.Utils
             {
                 enumerator1.Dispose();
             }
+        }
+
+        public static bool All(this IEnumerable<bool> enumerable)
+        {
+            return enumerable.All(_ => _);
         }
     }
 }
