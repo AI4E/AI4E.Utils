@@ -28,18 +28,29 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils
 {
+    /// <summary>
+    /// Provides helper methods for the <see cref="ValueTask"/> and <see cref="ValueTask{TResult}"/> types.
+    /// </summary>
     public static class ValueTaskHelper
     {
+        /// <summary>
+        /// Creates a value-task that completes when all of the value-tasks in the source enumerable completed.
+        /// </summary>
+        /// <typeparam name="T">The type of the completed value-task.</typeparam>
+        /// <param name="tasks">The enumerable of value-tasks to wait on for completion.</param>
+        /// <param name="preserveOrder">A boolean value indicating whether the order of the tasks shall be preserved.</param>
+        /// <returns>A value-task that represents the completion of all of the supplied value-tasks.</returns>
         public static ValueTask<IEnumerable<T>> WhenAll<T>(this IEnumerable<ValueTask<T>> tasks, bool preserveOrder = true)
         {
             // We do not capture tasks to prevent allocation for the captured data.
-            ValueTask<IEnumerable<T>> PreservedOrder(IEnumerable<ValueTask<T>> valueTasks)
+            static ValueTask<IEnumerable<T>> PreservedOrder(IEnumerable<ValueTask<T>> valueTasks)
             {
                 List<T> result;
                 List<Task> tasksToAwait;
@@ -100,7 +111,7 @@ namespace AI4E.Utils
                                 }
 
                                 exceptionList.Add(t.Exception.InnerException); // TODO: Unwrap the exception
-                        }
+                            }
                             else if (t.IsCanceled)
                             {
                                 Volatile.Write(ref wasCanceled, true);
@@ -147,7 +158,7 @@ namespace AI4E.Utils
             }
 
             // We do not capture tasks to prevent allocation for the captured data.
-            async ValueTask<IEnumerable<T>> NotPreservedOrder(IEnumerable<ValueTask<T>> valueTasks)
+            static async ValueTask<IEnumerable<T>> NotPreservedOrder(IEnumerable<ValueTask<T>> valueTasks)
             {
                 List<T> result;
                 List<Task<T>> tasksToAwait;
@@ -191,6 +202,45 @@ namespace AI4E.Utils
             }
 
             return NotPreservedOrder(tasks);
+        }
+
+        /// <summary>
+        /// Creates a value-task that completes when all of the value-tasks in the source enumerable completed.
+        /// </summary>
+        /// <param name="tasks">The enumerable of value-tasks to wait on for completion.</param>
+        /// <returns>A value-task that represents the completion of all of the supplied value-tasks.</returns>
+        public static ValueTask WhenAll(this IEnumerable<ValueTask> tasks)
+        {
+            List<Task> tasksToAwait = null;
+
+            if (tasks is ICollection<ValueTask> collection)
+            {
+                tasksToAwait = new List<Task>(capacity: collection.Count);
+            }
+            else if (tasks is IReadOnlyCollection<ValueTask> readOnlyCollection)
+            {
+                tasksToAwait = new List<Task>(capacity: readOnlyCollection.Count);
+            }
+
+            foreach (var valueTask in tasks)
+            {
+                if (!valueTask.IsCompletedSuccessfully)
+                {
+                    if (tasksToAwait == null)
+                    {
+                        tasksToAwait = new List<Task>();
+                    }
+
+                    tasksToAwait.Add(valueTask.AsTask());
+                }
+            }
+
+            if (tasksToAwait == null || !tasksToAwait.Any())
+            {
+                return default;
+            }
+
+            return new ValueTask(Task.WhenAll(tasksToAwait));
         }
     }
 }
