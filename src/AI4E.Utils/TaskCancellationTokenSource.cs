@@ -79,11 +79,54 @@ namespace AI4E.Utils
                 _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(linkedTokens);
             }
 
-            task.ContinueWith((_, cts) => ((CancellationTokenSource)cts).Cancel(), _cancellationTokenSource);
+            static void CancelSource(Task _, object obj)
+            {
+                var cts = (CancellationTokenSource)obj;
+
+                if (cts.IsCancellationRequested)
+                    return;
+
+                try
+                {
+                    cts.Cancel();
+                }
+                catch (ObjectDisposedException) { }
+            }
+
+            task.ContinueWith(CancelSource, _cancellationTokenSource);
         }
 
         public Task Task { get; }
-        public CancellationToken CancellationToken => _cancellationTokenSource?.Token ?? new CancellationToken(canceled: true);
+        public CancellationToken CancellationToken
+        {
+            get
+            {
+                if (_cancellationTokenSource == null)
+                {
+                    return CreateCanceledToken();
+                }
+
+                // Prevent throwing an ObjectDisposedException
+                if (_cancellationTokenSource.IsCancellationRequested)
+                {
+                    return CreateCanceledToken();
+                }
+
+                try
+                {
+                    return _cancellationTokenSource.Token;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return CreateCanceledToken();
+                }
+            }
+        }
+
+        private static CancellationToken CreateCanceledToken()
+        {
+            return new CancellationToken(canceled: true);
+        }
 
         public void Dispose()
         {
