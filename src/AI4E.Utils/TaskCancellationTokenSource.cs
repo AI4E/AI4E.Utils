@@ -27,23 +27,15 @@
  */
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace AI4E.Utils
 {
-    public sealed class TaskCancellationTokenSource : IDisposable
+    public readonly struct TaskCancellationTokenSource : IDisposable
     {
-        private static readonly CancellationToken _cancelledCancellationToken;
-
-        static TaskCancellationTokenSource()
-        {
-            var tcs = new CancellationTokenSource();
-            tcs.Cancel();
-            _cancelledCancellationToken = tcs.Token;
-        }
-
-        private volatile CancellationTokenSource _cancellationTokenSource;
+        private readonly CancellationTokenSource _cancellationTokenSource;
 
         public TaskCancellationTokenSource(Task task)
         {
@@ -51,27 +43,38 @@ namespace AI4E.Utils
                 throw new ArgumentNullException(nameof(task));
 
             Task = task;
-
-            if (!task.IsCompleted)
-            {
-                _cancellationTokenSource = new CancellationTokenSource();
-
-                task.GetAwaiter().OnCompleted(() =>
-                {
-                    _cancellationTokenSource?.Cancel(); // Volatile read op.
-                });
-            }
+            _cancellationTokenSource = new CancellationTokenSource();
+            task.ContinueWith((_, cts) => ((CancellationTokenSource)cts).Cancel(), _cancellationTokenSource);
         }
 
-        public CancellationToken Token => _cancellationTokenSource?.Token ?? // Volatile read op.
-                                          _cancelledCancellationToken;
+        public TaskCancellationTokenSource(Task task, params CancellationToken[] linkedTokens)
+        {
+            if (task == null)
+                throw new ArgumentNullException(nameof(task));
+
+            if (linkedTokens == null)
+                throw new ArgumentNullException(nameof(linkedTokens));
+
+            Task = task;
+
+            if (!linkedTokens.Any())
+            {
+                _cancellationTokenSource = new CancellationTokenSource();
+            }
+            else
+            {
+                _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(linkedTokens);
+            }
+
+            task.ContinueWith((_, cts) => ((CancellationTokenSource)cts).Cancel(), _cancellationTokenSource);
+        }
 
         public Task Task { get; }
+        public CancellationToken CancellationToken => _cancellationTokenSource?.Token ?? new CancellationToken(canceled: true);
 
         public void Dispose()
         {
-            var cancellationTokenSource = Interlocked.Exchange(ref _cancellationTokenSource, null);
-            cancellationTokenSource?.Dispose();
+            _cancellationTokenSource?.Dispose();
         }
     }
 }
