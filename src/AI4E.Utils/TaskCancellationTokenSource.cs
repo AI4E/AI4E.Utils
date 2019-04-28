@@ -43,6 +43,13 @@ namespace AI4E.Utils
                 throw new ArgumentNullException(nameof(task));
 
             Task = task;
+
+            if (task.IsCompleted)
+            {
+                _cancellationTokenSource = null;
+                return;
+            }
+
             _cancellationTokenSource = new CancellationTokenSource();
             task.ContinueWith((_, cts) => ((CancellationTokenSource)cts).Cancel(), _cancellationTokenSource);
         }
@@ -56,6 +63,12 @@ namespace AI4E.Utils
                 throw new ArgumentNullException(nameof(linkedTokens));
 
             Task = task;
+
+            if (task.IsCompleted || linkedTokens.Any(p => p.IsCancellationRequested))
+            {
+                _cancellationTokenSource = null;
+                return;
+            }
 
             if (!linkedTokens.Any())
             {
