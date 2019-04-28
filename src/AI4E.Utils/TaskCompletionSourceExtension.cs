@@ -45,7 +45,7 @@ namespace System.Threading.Tasks
         /// <exception cref="ArgumentNullException">
         /// Thrown if any of <paramref name="taskCompletionSource"/> or <paramref name="exception"/> is <c>null</c>.
         /// </exception>
-        public static bool TrySetExceptionOrCancelled<TResult>(this TaskCompletionSource<TResult> taskCompletionSource, Exception exception)
+        public static bool TrySetExceptionOrCanceled<TResult>(this TaskCompletionSource<TResult> taskCompletionSource, Exception exception)
         {
             if (taskCompletionSource == null)
                 throw new ArgumentNullException(nameof(taskCompletionSource));
@@ -83,9 +83,9 @@ namespace System.Threading.Tasks
         /// The <see cref="Task{TResult}"/> is already in one of the three final states:
         /// <see cref="TaskStatus.RanToCompletion"/>, <see cref="TaskStatus.Faulted"/>, or <see cref="TaskStatus.Canceled"/>.
         /// </exception>
-        public static void SetExceptionOrCancelled<TResult>(this TaskCompletionSource<TResult> taskCompletionSource, Exception exception)
+        public static void SetExceptionOrCanceled<TResult>(this TaskCompletionSource<TResult> taskCompletionSource, Exception exception)
         {
-            if (!TrySetExceptionOrCancelled(taskCompletionSource, exception))
+            if (!TrySetExceptionOrCanceled(taskCompletionSource, exception))
             {
                 throw new InvalidOperationException("The underlying Task<TResult> is already in one of the three final states: RanToCompletion, Faulted, or Canceled.");
             }

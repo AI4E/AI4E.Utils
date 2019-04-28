@@ -14,7 +14,7 @@ namespace AI4E.Utils
             var tcs = new TaskCompletionSource<object>();
             var task = tcs.Task;
 
-            tcs.SetExceptionOrCancelled(new TaskCanceledException());
+            tcs.SetExceptionOrCanceled(new TaskCanceledException());
 
             Assert.IsTrue(task.IsCanceled);
             Assert.IsFalse(task.IsFaulted);
@@ -29,7 +29,7 @@ namespace AI4E.Utils
             var tcs = new TaskCompletionSource<object>();
             var task = tcs.Task;
 
-            tcs.SetExceptionOrCancelled(new OperationCanceledException(cancellationToken));
+            tcs.SetExceptionOrCanceled(new OperationCanceledException(cancellationToken));
 
             Assert.IsTrue(task.IsCanceled);
             Assert.IsFalse(task.IsFaulted);
@@ -50,7 +50,7 @@ namespace AI4E.Utils
             var tcs = new TaskCompletionSource<object>();
             var task = tcs.Task;
 
-            tcs.SetExceptionOrCancelled(new OperationCanceledException());
+            tcs.SetExceptionOrCanceled(new OperationCanceledException());
 
             Assert.IsTrue(task.IsCanceled);
             Assert.IsFalse(task.IsFaulted);
@@ -62,30 +62,30 @@ namespace AI4E.Utils
             var tcs = new TaskCompletionSource<object>();
             var task = tcs.Task;
 
-            tcs.SetExceptionOrCancelled(new Exception());
+            tcs.SetExceptionOrCanceled(new Exception());
 
             Assert.IsTrue(task.IsFaulted);
             Assert.IsFalse(task.IsCanceled);
         }
 
         [TestMethod]
-        public void CompletedTcsSetExceptionOrCancelledTest()
+        public void CompletedTcsSetExceptionOrCanceledTest()
         {
             var tcs = new TaskCompletionSource<object>();
             tcs.SetResult(null);
 
             Assert.ThrowsException<InvalidOperationException>(() =>
             {
-                tcs.SetExceptionOrCancelled(new Exception());
+                tcs.SetExceptionOrCanceled(new Exception());
             });
         }
 
         [TestMethod]
-        public void CompletedTcsTrySetExceptionOrCancelledTest()
+        public void CompletedTcsTrySetExceptionOrCanceledTest()
         {
             var tcs = new TaskCompletionSource<object>();
             tcs.SetResult(null);
-            var success = tcs.TrySetExceptionOrCancelled(new Exception());
+            var success = tcs.TrySetExceptionOrCanceled(new Exception());
 
             Assert.IsFalse(success);
         }
