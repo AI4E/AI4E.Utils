@@ -31,6 +31,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
+#if DEBUG
+using System.Diagnostics;
+#endif
+
 namespace AI4E.Utils
 {
     public static class EnumerableExtension
@@ -62,11 +66,11 @@ namespace AI4E.Utils
 
 #if DEBUG
 
-            Assert(source.Count() == list.Length);
+            Debug.Assert(source.Count() == list.Length);
 
             foreach (var element in source)
             {
-                Assert(list.Contains(element));
+                Debug.Assert(list.Contains(element));
             }
 
 #endif
