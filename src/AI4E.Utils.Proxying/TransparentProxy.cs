@@ -31,10 +31,6 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-using AI4E.Utils.Async;
-#endif
-
 namespace AI4E.Utils.Proxying
 {
     /// <summary>
@@ -81,26 +77,10 @@ namespace AI4E.Utils.Proxying
             Proxy.Dispose();
         }
 
-#if SUPPORTS_ASYNC_DISPOSABLE
-        ValueTask
-#else
-            Task
-#endif
-        IAsyncDisposable.DisposeAsync()
+        ValueTask IAsyncDisposable.DisposeAsync()
         {
             return Proxy.DisposeAsync();
         }
-
-#if !SUPPORTS_ASYNC_DISPOSABLE
-
-        void IAsyncDisposable.Dispose()
-        {
-            Proxy.Dispose();
-        }
-
-        Task IAsyncDisposable.Disposal => Proxy.Disposal;
-
-#endif
 
         #endregion
 

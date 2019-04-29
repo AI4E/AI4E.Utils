@@ -31,9 +31,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-#if !SUPPORTS_ASYNC_DISPOSABLE
-using AI4E.Utils.Async;
-#endif
 
 namespace AI4E.Utils
 {
@@ -58,11 +55,7 @@ namespace AI4E.Utils
 
             if (obj is IAsyncDisposable asyncDisposable)
             {
-#if SUPPORTS_ASYNC_DISPOSABLE
                 return asyncDisposable.DisposeAsync().AsTask();
-#else
-                 return asyncDisposable.DisposeAsync();
-#endif
             }
 
             if (obj is IDisposable disposable)
