@@ -331,7 +331,6 @@ namespace AI4E.Utils.AsyncEnumerable
         }
 
 #if SUPPORTS_ASYNC_ENUMERABLE
-        // This is a workaround, as there is not support for async projections in System.Linq.Async yet.
 
         public static async IAsyncEnumerable<T> Evaluate<T>(this IAsyncEnumerable<ValueTask<T>> enumerable)
         {

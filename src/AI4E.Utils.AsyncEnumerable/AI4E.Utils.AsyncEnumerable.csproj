@@ -4,18 +4,20 @@
     <TargetFrameworks>$(FrameworkVersions)</TargetFrameworks>
   </PropertyGroup>
 
+  <PropertyGroup> 
+    <RestoreAdditionalProjectSources>
+      https://dotnet.myget.org/feed/rx/package/nuget/System.Linq.Async
+    </RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
   <PropertyGroup>
     <PackageTags>.Net Core Extensions Utils Utilities AsyncEnumerable</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
     <Description>Provides utilities and extension methods for work with the AsyncEnumerable type.</Description>
   </PropertyGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' == '$(NetStandardVersion)'">
-    <PackageReference Include="System.Interactive.Async" Version="3.2.0" />
-  </ItemGroup>
-
-  <ItemGroup  Condition="'$(TargetFramework)' != '$(NetStandardVersion)'">
-    <PackageReference Include="System.Linq.Async" Version="4.0.0-preview.1.build.745" />
+  
+  <ItemGroup>
+    <PackageReference Include="System.Linq.Async" Version="4.0.0-preview.2.build.760" />
   </ItemGroup>
 
   <ItemGroup>

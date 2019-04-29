@@ -22,6 +22,12 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <RestoreAdditionalProjectSources>
+      https://dotnet.myget.org/feed/rx/package/nuget/System.Linq.Async
+    </RestoreAdditionalProjectSources>
+  </PropertyGroup>
+  
+  <PropertyGroup>
     <RepositoryRootPath>$(RepositoryRoot)\</RepositoryRootPath>
     <RepositoryBuiltPath>$(RepositoryRootPath)artifacts\</RepositoryBuiltPath>
     <RootOutputPath>$(RepositoryBuiltPath)bin\</RootOutputPath>
@@ -52,11 +58,15 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC_ENUMERABLE;SUPPORTS_ASYNC_DISPOSABLE;</DefineConstants>
+  </PropertyGroup>
+  
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC_ENUMERABLE;SUPPORTS_ASYNC_DISPOSABLE;SUPPORTS_SPAN_APIS</DefineConstants>
+    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC_ENUMERABLE;SUPPORTS_ASYNC_DISPOSABLE;SUPPORTS_SPAN_APIS;SUPPORTS_DEFAULT_INTERFACE_METHODS</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
-    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC_ENUMERABLE;SUPPORTS_ASYNC_DISPOSABLE;SUPPORTS_SPAN_APIS</DefineConstants>
+    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC_ENUMERABLE;SUPPORTS_ASYNC_DISPOSABLE;SUPPORTS_SPAN_APIS;SUPPORTS_DEFAULT_INTERFACE_METHODS</DefineConstants>
   </PropertyGroup>
 </Project>

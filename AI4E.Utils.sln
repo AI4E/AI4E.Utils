@@ -35,7 +35,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AI4E.Utils.Proxying", "src\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AI4E.Utils.Proxying.Test", "test\AI4E.Utils.Proxying.Test\AI4E.Utils.Proxying.Test.csproj", "{AF03E23E-4073-4B22-921D-983B6066A124}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI4E.Utils.Test", "test\AI4E.Utils.Test\AI4E.Utils.Test.csproj", "{E5901C18-6FA4-4716-8E49-EFEEA750C3AE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AI4E.Utils.Test", "test\AI4E.Utils.Test\AI4E.Utils.Test.csproj", "{E5901C18-6FA4-4716-8E49-EFEEA750C3AE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
