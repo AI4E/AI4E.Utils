@@ -14,7 +14,7 @@
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.2" />
     <PackageReference Include="System.Memory" Version="4.5.2" />
 
-    <!-- We need this for the IAsyncDisposable definition -->
+    <!-- We need this for the IAsyncDisposable and IAsyncEnumerable definition -->
     <PackageReference Include="System.Linq.Async" Version="4.0.0-preview.2.build.760" />
   </ItemGroup>
 

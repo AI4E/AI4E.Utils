@@ -30,7 +30,6 @@ using System;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
-using AI4E.Utils.Async;
 
 namespace AI4E.Utils.Proxying
 {
@@ -39,9 +38,7 @@ namespace AI4E.Utils.Proxying
     /// </summary>
     public interface IProxy : IAsyncDisposable
     {
-#if SUPPORTS_ASYNC_DISPOSABLE
         Task Disposal { get; }
-#endif
 
         /// <summary>
         /// Gets the local proxied instance or null if this is a remote proxy.

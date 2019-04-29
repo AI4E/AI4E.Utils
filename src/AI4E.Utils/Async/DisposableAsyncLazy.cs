@@ -96,10 +96,7 @@ namespace AI4E.Utils.Async
     /// Represents a lazyly created object with async factory and disposal support.
     /// </summary>
     /// <typeparam name="T">The type of value that is created lazily.</typeparam>
-    public sealed class DisposableAsyncLazy<T> : IAsyncDisposable
-#if SUPPORTS_ASYNC_DISPOSABLE
-        , IDisposable
-#endif
+    public sealed class DisposableAsyncLazy<T> : IAsyncDisposable , IDisposable
     {
         private static readonly Func<T, Task> _noDisposal = _ => System.Threading.Tasks.Task.CompletedTask;
 
@@ -378,20 +375,10 @@ namespace AI4E.Utils.Async
         }
 
         /// <inheritdoc/>
-        public
-#if SUPPORTS_ASYNC_DISPOSABLE
-            ValueTask
-#else
-            Task
-#endif
-            DisposeAsync()
+        public ValueTask DisposeAsync()
         {
             Dispose();
-#if SUPPORTS_ASYNC_DISPOSABLE
             return Disposal.AsValueTask();
-#else
-            return Disposal;
-#endif 
         }
 
         private async Task DisposeInternalAsync()

@@ -28,12 +28,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using static System.Diagnostics.Debug;
 
+#if NETSTD20
+using System.Linq;
+#endif
+
+// TODO: Change namespace to System.Collections.Generic
 namespace AI4E.Utils.AsyncEnumerable
 {
     public static class AsyncEnumerableExtensions
@@ -48,7 +52,6 @@ namespace AI4E.Utils.AsyncEnumerable
                 throw new ArgumentNullException(nameof(asyncSelector));
 
             return new AsyncSelectEnumerable<TSource, TResult>(source, asyncSelector);
-
         }
 
         private sealed class AsyncSelectEnumerable<TSource, TResult> : IAsyncEnumerable<TResult>
@@ -62,17 +65,10 @@ namespace AI4E.Utils.AsyncEnumerable
                 _asyncSelector = asyncSelector;
             }
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-            public IAsyncEnumerator<TResult> GetEnumerator()
-            {
-                return new AsyncSelectEnumerator(_source, _asyncSelector);
-            }
-#else
             public IAsyncEnumerator<TResult> GetAsyncEnumerator(CancellationToken cancellationToken = default)
             {
                 return new AsyncSelectEnumerator(_source, _asyncSelector, cancellationToken);
             }
-#endif
 
             private sealed class AsyncSelectEnumerator : IAsyncEnumerator<TResult>
             {
@@ -81,39 +77,23 @@ namespace AI4E.Utils.AsyncEnumerable
 
                 public AsyncSelectEnumerator(
                     IAsyncEnumerable<TSource> source,
-                    Func<TSource, Task<TResult>> asyncSelector
-#if SUPPORTS_ASYNC_DISPOSABLE
-                    , CancellationToken cancellation
-#endif
+                    Func<TSource, Task<TResult>> asyncSelector,
+                    CancellationToken cancellation
                     )
                 {
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                    _enumerator = source.GetEnumerator();
-#else
                     _enumerator = source.GetAsyncEnumerator(cancellation);
-#endif
-
                     _asyncSelector = asyncSelector;
 
                     Current = default;
                 }
 
-
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public async Task<bool> MoveNext(CancellationToken cancellationToken)
-#else
                 public async ValueTask<bool> MoveNextAsync()
-#endif
                 {
                     bool result;
 
                     do
                     {
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                        result = await _enumerator.MoveNext(cancellationToken);
-#else
                         result = await _enumerator.MoveNextAsync();
-#endif
 
                         if (result)
                         {
@@ -140,20 +120,14 @@ namespace AI4E.Utils.AsyncEnumerable
 
                 public TResult Current { get; private set; }
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public void Dispose()
-                {
-                    _enumerator.Dispose();
-                }
-#else
                 public ValueTask DisposeAsync()
                 {
                     return _enumerator.DisposeAsync();
                 }
-#endif
             }
         }
 
+        // TODO: Rename to YieldAsync?
         public static IAsyncEnumerable<T> ToAsyncEnumerable<T>(in this ValueTask<T> task)
         {
             return new SingleAsyncEnumerable<T>(task);
@@ -168,11 +142,7 @@ namespace AI4E.Utils.AsyncEnumerable
                 _task = task;
             }
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-            public IAsyncEnumerator<T> GetEnumerator()
-#else
             public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-#endif
             {
                 return new SingleAsyncEnumerator(_task);
             }
@@ -189,17 +159,9 @@ namespace AI4E.Utils.AsyncEnumerable
 
                 public T Current { get; private set; }
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public void Dispose() { }
-#else
                 public ValueTask DisposeAsync() { return default; }
-#endif
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public async Task<bool> MoveNext(CancellationToken cancellationToken)
-#else
                 public async ValueTask<bool> MoveNextAsync()
-#endif
                 {
                     if (_initialized)
                     {
@@ -215,22 +177,28 @@ namespace AI4E.Utils.AsyncEnumerable
             }
         }
 
-        public static
-#if !SUPPORTS_ASYNC_DISPOSABLE
-            TaskAwaiter<T[]>
-#else
-            ValueTaskAwaiter<T[]>
-#endif
-            GetAwaiter<T>(this IAsyncEnumerable<T> asyncEnumerable)
+        public static ValueTaskAwaiter<T[]> GetAwaiter<T>(this IAsyncEnumerable<T> asyncEnumerable)
         {
             if (asyncEnumerable == null)
                 throw new ArgumentNullException(nameof(asyncEnumerable));
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-            return asyncEnumerable.ToArray().GetAwaiter();
-#else
+#if NETSTD20
             return asyncEnumerable.ToArrayAsync().GetAwaiter();
-#endif
+#else
+            async ValueTask<T[]> Preevaluate()
+            {
+                var list = new List<T>();
+
+                await foreach (var t in asyncEnumerable)
+                {
+                    list.Add(t);
+                }
+
+                return list.ToArray();
+            }
+
+            return Preevaluate().GetAwaiter();
+#endif 
         }
 
         public static IAsyncEnumerable<T> ToAsyncEnumerable<T>(this Task<IEnumerable<T>> enumerable)
@@ -251,11 +219,7 @@ namespace AI4E.Utils.AsyncEnumerable
                 _enumerable = enumerable;
             }
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-            public IAsyncEnumerator<T> GetEnumerator()
-#else
             public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-#endif
             {
                 return new ComputedAsyncEnumerator(_enumerable);
             }
@@ -272,11 +236,7 @@ namespace AI4E.Utils.AsyncEnumerable
                     _enumerable = enumerable;
                 }
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public async Task<bool> MoveNext(CancellationToken cancellationToken)
-#else
                 public async ValueTask<bool> MoveNextAsync()
-#endif
                 {
                     ThrowIfDisposed();
 
@@ -290,12 +250,7 @@ namespace AI4E.Utils.AsyncEnumerable
 
                 public T Current => ThrowIfDisposed(_enumerator == null ? default : _enumerator.Current);
 
-
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public void Dispose()
-#else
                 public ValueTask DisposeAsync()
-#endif
                 {
                     if (!_isDisposed)
                     {
@@ -303,9 +258,7 @@ namespace AI4E.Utils.AsyncEnumerable
                         _enumerator?.Dispose();
                     }
 
-#if SUPPORTS_ASYNC_DISPOSABLE
                     return default;
-#endif
                 }
 
                 private void ThrowIfDisposed()
@@ -330,8 +283,6 @@ namespace AI4E.Utils.AsyncEnumerable
             return new EvaluationAsyncEnumerable<T>(enumerable);
         }
 
-#if SUPPORTS_ASYNC_ENUMERABLE
-
         public static async IAsyncEnumerable<T> Evaluate<T>(this IAsyncEnumerable<ValueTask<T>> enumerable)
         {
             await foreach (var t in enumerable)
@@ -339,7 +290,6 @@ namespace AI4E.Utils.AsyncEnumerable
                 yield return await t;
             }
         }
-#endif
 
         private sealed class EvaluationAsyncEnumerable<T> : IAsyncEnumerable<T>
         {
@@ -350,61 +300,32 @@ namespace AI4E.Utils.AsyncEnumerable
                 Assert(enumerable != null);
                 _enumerable = enumerable;
             }
-#if !SUPPORTS_ASYNC_DISPOSABLE
-            public IAsyncEnumerator<T> GetEnumerator()
-#else
+
             public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-#endif
+
             {
-                return new EvaluationAsyncEnumerator(_enumerable
-#if SUPPORTS_ASYNC_DISPOSABLE
-                     , cancellationToken
-#endif
-                );
+                return new EvaluationAsyncEnumerator(_enumerable, cancellationToken);
             }
 
             private sealed class EvaluationAsyncEnumerator : IAsyncEnumerator<T>
             {
                 private readonly IAsyncEnumerator<Task<T>> _enumerator;
 
-                public EvaluationAsyncEnumerator(IAsyncEnumerable<Task<T>> enumerable
-#if SUPPORTS_ASYNC_DISPOSABLE
-                    , CancellationToken cancellation
-#endif
-                    )
+                public EvaluationAsyncEnumerator(IAsyncEnumerable<Task<T>> enumerable, CancellationToken cancellation)
                 {
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                    _enumerator = enumerable.GetEnumerator();
-#else
                     _enumerator = enumerable.GetAsyncEnumerator(cancellation);
-#endif
                 }
 
                 public T Current { get; private set; }
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public void Dispose()
-                {
-                    _enumerator.Dispose();
-                }
-#else
                 public ValueTask DisposeAsync()
                 {
                     return _enumerator.DisposeAsync();
                 }
-#endif
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                public async Task<bool> MoveNext(CancellationToken cancellationToken)
-#else
                 public async ValueTask<bool> MoveNextAsync()
-#endif
                 {
-#if !SUPPORTS_ASYNC_DISPOSABLE
-                    if (!await _enumerator.MoveNext(cancellationToken))
-#else
                     if (!await _enumerator.MoveNextAsync())
-#endif
                     {
                         return false;
                     }
@@ -415,100 +336,4 @@ namespace AI4E.Utils.AsyncEnumerable
             }
         }
     }
-
-#if !SUPPORTS_ASYNC_DISPOSABLE
-
-    public sealed class AsyncEnumerableHelper
-    {
-        public static IAsyncEnumerable<TResult> Generate<TState, TResult>(TState initialState,
-                                                                          Func<TState, Task<bool>> condition,
-                                                                          Func<TState, ValueTask<TState>> iterate,
-                                                                          Func<TState, ValueTask<TResult>> resultSelector)
-        {
-            if (condition == null)
-                throw new ArgumentNullException(nameof(condition));
-
-            if (iterate == null)
-                throw new ArgumentNullException(nameof(iterate));
-
-            if (resultSelector == null)
-                throw new ArgumentNullException(nameof(resultSelector));
-
-            return new GeneratedAsyncEnumerable<TState, TResult>(initialState, condition, iterate, resultSelector);
-        }
-
-        private sealed class GeneratedAsyncEnumerable<TState, TResult> : IAsyncEnumerable<TResult>
-        {
-            private readonly TState _initialState;
-            private readonly Func<TState, Task<bool>> _condition;
-            private readonly Func<TState, ValueTask<TState>> _iterate;
-            private readonly Func<TState, ValueTask<TResult>> _resultSelector;
-
-            public GeneratedAsyncEnumerable(TState initialState,
-                                            Func<TState, Task<bool>> condition,
-                                            Func<TState, ValueTask<TState>> iterate,
-                                            Func<TState, ValueTask<TResult>> resultSelector)
-            {
-                Assert(condition != null);
-                Assert(iterate != null);
-                Assert(resultSelector != null);
-                _initialState = initialState;
-                _condition = condition;
-                _iterate = iterate;
-                _resultSelector = resultSelector;
-            }
-
-            public IAsyncEnumerator<TResult> GetEnumerator()
-            {
-                return new GeneratedAsyncEnumerator<TState, TResult>(_initialState, _condition, _iterate, _resultSelector);
-            }
-        }
-
-        private sealed class GeneratedAsyncEnumerator<TState, TResult> : IAsyncEnumerator<TResult>
-        {
-            private readonly Func<TState, Task<bool>> _condition;
-            private readonly Func<TState, ValueTask<TState>> _iterate;
-            private readonly Func<TState, ValueTask<TResult>> _resultSelector;
-
-            private TState _state;
-            private bool _completed;
-
-            public GeneratedAsyncEnumerator(TState initialState,
-                                            Func<TState, Task<bool>> condition,
-                                            Func<TState, ValueTask<TState>> iterate,
-                                            Func<TState, ValueTask<TResult>> resultSelector)
-            {
-                Assert(condition != null);
-                Assert(iterate != null);
-                Assert(resultSelector != null);
-
-                _state = initialState;
-                _condition = condition;
-                _iterate = iterate;
-                _resultSelector = resultSelector;
-            }
-
-            public TResult Current { get; private set; }
-
-            public async Task<bool> MoveNext(CancellationToken cancellationToken)
-            {
-                if (_completed || !await _condition(_state))
-                {
-                    _completed = true;
-                    return false;
-                }
-
-                _state = await _iterate(_state);
-                Current = await _resultSelector(_state);
-                return true;
-            }
-
-            public void Dispose()
-            {
-                _completed = true;
-            }
-        }
-    }
-
-#endif
 }

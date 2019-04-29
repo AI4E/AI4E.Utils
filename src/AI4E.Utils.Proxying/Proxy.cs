@@ -143,13 +143,7 @@ namespace AI4E.Utils.Proxying
             _disposeHelper.Dispose();
         }
 
-        public
-#if SUPPORTS_ASYNC_DISPOSABLE
-            ValueTask
-#else
-            Task
-#endif
-            DisposeAsync()
+        public ValueTask DisposeAsync()
         {
             return _disposeHelper.DisposeAsync();
         }

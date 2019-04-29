@@ -32,10 +32,7 @@ using System.Threading.Tasks;
 
 namespace AI4E.Utils.Async
 {
-    public sealed class AsyncLifetimeManager : IAsyncInitialization, IAsyncDisposable
-#if SUPPORTS_ASYNC_DISPOSABLE
-        , IDisposable
-#endif
+    public sealed class AsyncLifetimeManager : IAsyncInitialization, IAsyncDisposable, IDisposable
     {
         private readonly DisposableAsyncLazy<byte> _underlyingManager;
 
@@ -120,22 +117,14 @@ namespace AI4E.Utils.Async
 
         #region Disposal
 
-#if !SUPPORTS_ASYNC_DISPOSABLE
         public Task Disposal => _underlyingManager.Disposal;
-#endif
 
         public void Dispose()
         {
             _underlyingManager.Dispose();
         }
 
-        public
-#if SUPPORTS_ASYNC_DISPOSABLE
-            ValueTask
-#else
-            Task
-#endif
-            DisposeAsync()
+        public ValueTask DisposeAsync()
         {
             return _underlyingManager.DisposeAsync();
         }
