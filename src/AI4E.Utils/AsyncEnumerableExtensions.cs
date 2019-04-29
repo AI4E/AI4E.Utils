@@ -26,8 +26,6 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,10 +35,9 @@ using static System.Diagnostics.Debug;
 using System.Linq;
 #endif
 
-// TODO: Change namespace to System.Collections.Generic
-namespace AI4E.Utils.AsyncEnumerable
+namespace System.Collections.Generic
 {
-    public static class AsyncEnumerableExtensions
+    public static class AI4EUtilsAsyncEnumerableExtensions
     {
         // Performs an ordinary select except when an exception occurs in the selector, than it ignores the exception and continues.
         public static IAsyncEnumerable<TResult> SelectOrContinue<TSource, TResult>(this IAsyncEnumerable<TSource> source, Func<TSource, Task<TResult>> asyncSelector)
