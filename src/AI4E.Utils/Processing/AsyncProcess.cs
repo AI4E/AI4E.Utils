@@ -149,7 +149,7 @@ namespace AI4E.Utils.Processing
                         throw new UnexpectedProcessTerminationException();
                     }
                 }
-                catch (TaskCanceledException) when (_cancellationSource.IsCancellationRequested) { }
+                catch (OperationCanceledException) when (_cancellationSource.IsCancellationRequested) { }
                 catch (Exception exc)
                 {
                     _terminationNotificationSource.SetException(exc);

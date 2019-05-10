@@ -55,7 +55,7 @@ namespace AI4E.Utils
 
         private static async ValueTask InternalWithCancellation(ValueTask task, CancellationToken cancellation)
         {
-            var tcs = new ValueTaskCompletionSource();
+            var tcs = ValueTaskCompletionSource.Create();
 
             Execute(tcs, task);
 
@@ -98,7 +98,7 @@ namespace AI4E.Utils
 
         private static async ValueTask<T> InternalWithCancellation<T>(ValueTask<T> task, CancellationToken cancellation)
         {
-            var tcs = new ValueTaskCompletionSource<T>();
+            var tcs = ValueTaskCompletionSource<T>.Create();
 
             Execute(tcs, task);
 
