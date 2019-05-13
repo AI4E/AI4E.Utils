@@ -26,17 +26,14 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.Diagnostics;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AI4E.Utils.Memory
+namespace System.IO
 {
-    public static partial class StreamExtension
+    public static partial class ReadExactStreamExtension
     {
-        public static async Task ReadExactAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellation)
+        public static async ValueTask ReadExactAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellation)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
@@ -49,8 +46,6 @@ namespace AI4E.Utils.Memory
                     throw new EndOfStreamException();
 
                 buffer = buffer.Slice(readBytes);
-
-                Debug.Assert(!(buffer.Length < 0));
             }
         }
 
@@ -67,8 +62,6 @@ namespace AI4E.Utils.Memory
                     throw new EndOfStreamException();
 
                 buffer = buffer.Slice(readBytes);
-
-                Debug.Assert(!(buffer.Length < 0));
             }
         }
     }
