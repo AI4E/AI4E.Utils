@@ -15,7 +15,7 @@
     <PackageReference Include="System.Memory" Version="4.5.2" />
 
     <!-- We need this for the IAsyncDisposable and IAsyncEnumerable definition -->
-    <PackageReference Include="System.Linq.Async" Version="4.0.0-preview.2.build.760" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.0.0-preview6.19259.10" />
   </ItemGroup>
 
   <ItemGroup>

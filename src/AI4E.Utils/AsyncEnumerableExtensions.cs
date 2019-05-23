@@ -179,9 +179,6 @@ namespace System.Collections.Generic
             if (asyncEnumerable == null)
                 throw new ArgumentNullException(nameof(asyncEnumerable));
 
-#if NETSTD20
-            return asyncEnumerable.ToArrayAsync().GetAwaiter();
-#else
             async ValueTask<T[]> Preevaluate()
             {
                 var list = new List<T>();
@@ -194,8 +191,7 @@ namespace System.Collections.Generic
                 return list.ToArray();
             }
 
-            return Preevaluate().GetAwaiter();
-#endif 
+            return Preevaluate().GetAwaiter(); 
         }
 
         public static IAsyncEnumerable<T> ToAsyncEnumerable<T>(this Task<IEnumerable<T>> enumerable)
