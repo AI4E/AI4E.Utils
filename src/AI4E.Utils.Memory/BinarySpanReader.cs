@@ -30,6 +30,7 @@
 
 using System;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace AI4E.Utils.Memory
@@ -225,7 +226,7 @@ namespace AI4E.Utils.Memory
         public float ReadSingle()
         {
             var int32 = ReadInt32();
-            return BitConverter.ToSingle(BitConverter.GetBytes(int32), 0); // TODO: *(float*)(&value)
+            return Unsafe.As<int, float>(ref int32); // *(float*)(&value)
         }
 
         public double ReadDouble()
