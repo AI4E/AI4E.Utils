@@ -26,19 +26,15 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.IO;
-
-namespace AI4E.Utils
+namespace System.IO
 {
     public static class FileInfoExtensions
     {
         public static FileStream OpenReadAsync(this FileInfo fileInfo)
         {
-            if (fileInfo == null)
-                throw new ArgumentNullException(nameof(fileInfo));
-
+#pragma warning disable CA1062
             return new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true);
+#pragma warning restore CA1062
         }
     }
 }

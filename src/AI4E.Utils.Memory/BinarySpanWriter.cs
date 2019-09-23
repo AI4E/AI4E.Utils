@@ -26,6 +26,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+ #pragma warning disable CA1815
+
 using System;
 using System.Buffers.Binary;
 using System.Text;
@@ -54,7 +56,7 @@ namespace AI4E.Utils.Memory
             }
             else
             {
-                _useLittleEndian = (byteOrder == ByteOrder.LittleEndian);
+                _useLittleEndian = byteOrder == ByteOrder.LittleEndian;
             }
         }
 
@@ -259,3 +261,5 @@ namespace AI4E.Utils.Memory
         }
     }
 }
+
+#pragma warning restore CA1815

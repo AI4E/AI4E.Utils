@@ -26,19 +26,15 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
 using System.Collections.Immutable;
 
-namespace AI4E.Utils
+namespace System.Linq
 {
-    public static class ImmutableArrayExtension
+    public static class AI4EUtilsImmutableArrayExtension
     {
-        public static T? FirstOrDefaultEx<T>(this ImmutableArray<T> collection, Func<T, bool> predicate)
+        public static T? FirstOrDefault<T>(this ImmutableArray<T> collection, Func<T, bool> predicate)
            where T : struct
         {
-            if (collection == null)
-                throw new ArgumentNullException(nameof(collection));
-
             if (predicate == null)
                 throw new ArgumentNullException(nameof(predicate));
 
@@ -55,9 +51,6 @@ namespace AI4E.Utils
 
         public static int FindIndex<T>(this ImmutableArray<T> collection, Func<T, bool> predicate)
         {
-            if (collection == null)
-                throw new ArgumentNullException(nameof(collection));
-
             if (predicate == null)
                 throw new ArgumentNullException(nameof(predicate));
 

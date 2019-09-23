@@ -46,11 +46,12 @@
 
 namespace AI4E.Utils.ApplicationParts
 {
+
     /// <summary>
     /// Marker interface for <see cref="IApplicationFeatureProvider"/>
     /// implementations.
     /// </summary>
-    public interface IApplicationFeatureProvider
-    {
-    }
+#pragma warning disable CA1040
+    public interface IApplicationFeatureProvider { }
+#pragma warning restore CA1040
 }

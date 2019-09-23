@@ -26,6 +26,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#pragma warning disable CA2225
+
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -41,7 +43,9 @@ namespace AI4E.Utils
             RawValue = rawValue;
         }
 
+#pragma warning disable CA1822
         public int RawValue { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
+#pragma warning restore CA1822
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int CompareTo(SeqNum other)
@@ -55,7 +59,7 @@ namespace AI4E.Utils
             return other.RawValue == RawValue;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is SeqNum seqNum && Equals(seqNum);
         }
@@ -69,7 +73,15 @@ namespace AI4E.Utils
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override string ToString()
         {
+#pragma warning disable CA1305
             return RawValue.ToString();
+#pragma warning restore CA1305
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public string ToString(IFormatProvider formatProvider)
+        {
+            return RawValue.ToString(formatProvider);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -122,6 +134,7 @@ namespace AI4E.Utils
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static SeqNum operator +(SeqNum seqNum, int value)
+
         {
             return new SeqNum(unchecked(seqNum.RawValue + value));
         }
@@ -190,3 +203,5 @@ namespace AI4E.Utils
         }
     }
 }
+
+#pragma warning restore CA2225

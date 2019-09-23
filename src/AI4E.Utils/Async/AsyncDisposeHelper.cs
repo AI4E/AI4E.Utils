@@ -43,20 +43,20 @@ namespace AI4E.Utils.Async
         #region Fields
 
         private readonly Func<ValueTask> _disposal;
-        private volatile CancellationTokenSource _disposalCancellationSource = new CancellationTokenSource();
-        private Task _disposalTask;
+        internal volatile CancellationTokenSource? _disposalCancellationSource = new CancellationTokenSource();
+        private Task? _disposalTask;
 
         // This is needed only if we have (or could have) an async dispose operation
         // -- OR --
         // we request the completion task explicitly.
-        private TaskCompletionSource<object> _disposalTaskSource;
-        private volatile Exception _exception;
+        private TaskCompletionSource<object?>? _disposalTaskSource;
+        private volatile Exception? _exception;
 
         // This is null if the disposal operation shall not be synced with the pending operations.
-        private readonly AsyncReaderWriterLock _lock;
+        internal readonly AsyncReaderWriterLock? _lock;
 
         // This is null if recursion detection is disabled.
-        private readonly AsyncLocal<bool> _recursionDetection;
+        private readonly AsyncLocal<bool>? _recursionDetection;
 
         #endregion
 
@@ -82,7 +82,7 @@ namespace AI4E.Utils.Async
             _disposal = BuildDisposal(disposal);
             Options = options;
 
-            _disposalTaskSource = new TaskCompletionSource<object>();
+            _disposalTaskSource = new TaskCompletionSource<object?>();
 
             if (options.IncludesFlag(AsyncDisposeHelperOptions.Synchronize))
             {
@@ -115,7 +115,7 @@ namespace AI4E.Utils.Async
             _disposal = disposal;
             Options = options;
 
-            _disposalTaskSource = new TaskCompletionSource<object>();
+            _disposalTaskSource = new TaskCompletionSource<object?>();
 
             if (options.IncludesFlag(AsyncDisposeHelperOptions.Synchronize))
             {
@@ -237,7 +237,7 @@ namespace AI4E.Utils.Async
         {
             Dispose();
 
-            return Disposal.AsValueTask(); 
+            return Disposal.AsValueTask();
         }
 
         #endregion
@@ -302,22 +302,22 @@ namespace AI4E.Utils.Async
             };
         }
 
-        private static TaskCompletionSource<object> CompletedTaskCompletionSource { get; } = CreateCompletedTaskCompletionSource();
+        private static TaskCompletionSource<object?> CompletedTaskCompletionSource { get; } = CreateCompletedTaskCompletionSource();
 
-        private static TaskCompletionSource<object> CreateCompletedTaskCompletionSource()
+        private static TaskCompletionSource<object?> CreateCompletedTaskCompletionSource()
         {
-            var result = new TaskCompletionSource<object>();
+            var result = new TaskCompletionSource<object?>();
             result.SetResult(null);
             return result;
         }
 
 
-        private TaskCompletionSource<object> GetOrCreateDisposalTaskSource()
+        private TaskCompletionSource<object?> GetOrCreateDisposalTaskSource()
         {
-            return GetOrCreateDisposalTaskSource(() => new TaskCompletionSource<object>());
+            return GetOrCreateDisposalTaskSource(() => new TaskCompletionSource<object?>());
         }
 
-        private TaskCompletionSource<object> GetOrCreateDisposalTaskSource(Func<TaskCompletionSource<object>> factory)
+        private TaskCompletionSource<object?> GetOrCreateDisposalTaskSource(Func<TaskCompletionSource<object?>> factory)
         {
             var disposalTaskSource = _disposalTaskSource; // Volatile read op.
 
@@ -344,12 +344,12 @@ namespace AI4E.Utils.Async
                 {
                     using (await _lock.WriterLockAsync())
                     {
-                        await DisposalWithRecursionDetection();
+                        await DisposalWithRecursionDetection().ConfigureAwait(false);
                     }
                 }
                 else
                 {
-                    await DisposalWithRecursionDetection();
+                    await DisposalWithRecursionDetection().ConfigureAwait(false);
                 }
             }
             catch (Exception exc) when (!(exc is OperationCanceledException))
@@ -382,113 +382,115 @@ namespace AI4E.Utils.Async
                 await _disposal();
             }
         }
+    }
 
-        public readonly struct DisposalGuard : IDisposable
+#pragma warning disable CA1815
+    public readonly struct DisposalGuard : IDisposable
+#pragma warning restore CA1815
+    {
+        private readonly CancellationTokenSource? _combinedCancellationSource;
+        private readonly IDisposable? _lockReleaser;
+        private readonly CancellationToken _externalCancellation;
+        private readonly CancellationToken _disposal;
+
+        internal DisposalGuard(AsyncDisposeHelper asyncDisposeHelper, CancellationToken cancellation = default)
         {
-            private readonly CancellationTokenSource _combinedCancellationSource;
-            private readonly IDisposable _lockReleaser;
-            private readonly CancellationToken _externalCancellation;
-            private readonly CancellationToken _disposal;
+            if (asyncDisposeHelper == null)
+                throw new ArgumentNullException(nameof(asyncDisposeHelper));
 
-            public DisposalGuard(AsyncDisposeHelper asyncDisposeHelper, CancellationToken cancellation = default)
+            GetBaseParameters(
+                asyncDisposeHelper,
+                cancellation,
+                out _combinedCancellationSource,
+                out _disposal,
+                out _externalCancellation);
+
+            _lockReleaser = null;
+
+            if (asyncDisposeHelper._lock != null)
             {
-                if (asyncDisposeHelper == null)
-                    throw new ArgumentNullException(nameof(asyncDisposeHelper));
+                _lockReleaser = asyncDisposeHelper._lock.ReaderLock(cancellation);
 
-                GetBaseParameters(
-                    asyncDisposeHelper,
-                    cancellation,
-                    out _combinedCancellationSource,
-                    out _disposal,
-                    out _externalCancellation);
-
-                _lockReleaser = null;
-
-                if (asyncDisposeHelper._lock != null)
+                if ((_combinedCancellationSource?.Token ?? _disposal).IsCancellationRequested)
                 {
-                    _lockReleaser = asyncDisposeHelper._lock.ReaderLock(cancellation);
-
-                    if ((_combinedCancellationSource?.Token ?? _disposal).IsCancellationRequested)
-                    {
-                        _lockReleaser.Dispose();
-                        _combinedCancellationSource?.Dispose();
-                        throw new OperationCanceledException();
-                    }
-                }
-            }
-
-            private DisposalGuard(CancellationTokenSource combinedCancellationSource,
-                                  IDisposable lockReleaser,
-                                  CancellationToken disposal,
-                                  CancellationToken externalCancellation)
-            {
-                _combinedCancellationSource = combinedCancellationSource;
-                _lockReleaser = lockReleaser;
-                _disposal = disposal;
-                _externalCancellation = externalCancellation;
-            }
-
-            internal static async ValueTask<DisposalGuard> CreateAsync(AsyncDisposeHelper asyncDisposeHelper, CancellationToken cancellation)
-            {
-                GetBaseParameters(
-                    asyncDisposeHelper,
-                    cancellation,
-                    out var combinedCancellationSource,
-                    out var disposal,
-                    out var externalCancellation);
-
-                var lockReleaser = default(IDisposable);
-
-                if (asyncDisposeHelper._lock != null)
-                {
-                    lockReleaser = await asyncDisposeHelper._lock.ReaderLockAsync(cancellation);
-
-                    if ((combinedCancellationSource?.Token ?? disposal).IsCancellationRequested)
-                    {
-                        lockReleaser.Dispose();
-                        combinedCancellationSource?.Dispose();
-                        throw new OperationCanceledException();
-                    }
-                }
-
-                return new DisposalGuard(combinedCancellationSource, lockReleaser, disposal, externalCancellation);
-            }
-
-            private static void GetBaseParameters(
-                AsyncDisposeHelper asyncDisposeHelper,
-                CancellationToken cancellation,
-                out CancellationTokenSource combinedCancellationSource,
-                out CancellationToken disposal,
-                out CancellationToken externalCancellation)
-            {
-                var disposalCancellationSource = asyncDisposeHelper._disposalCancellationSource; // Volatile read op
-
-                if (cancellation.IsCancellationRequested ||
-                    disposalCancellationSource == null ||
-                    disposalCancellationSource.IsCancellationRequested)
-                {
+                    _lockReleaser.Dispose();
+                    _combinedCancellationSource?.Dispose();
                     throw new OperationCanceledException();
                 }
+            }
+        }
 
-                externalCancellation = cancellation;
-                disposal = disposalCancellationSource.Token;
-                combinedCancellationSource = default;
+        private DisposalGuard(CancellationTokenSource? combinedCancellationSource,
+                              IDisposable? lockReleaser,
+                              CancellationToken disposal,
+                              CancellationToken externalCancellation)
+        {
+            _combinedCancellationSource = combinedCancellationSource;
+            _lockReleaser = lockReleaser;
+            _disposal = disposal;
+            _externalCancellation = externalCancellation;
+        }
 
-                if (cancellation.CanBeCanceled)
+        internal static async ValueTask<DisposalGuard> CreateAsync(AsyncDisposeHelper asyncDisposeHelper, CancellationToken cancellation)
+        {
+            GetBaseParameters(
+                asyncDisposeHelper,
+                cancellation,
+                out var combinedCancellationSource,
+                out var disposal,
+                out var externalCancellation);
+
+            var lockReleaser = default(IDisposable);
+
+            if (asyncDisposeHelper._lock != null)
+            {
+                lockReleaser = await asyncDisposeHelper._lock.ReaderLockAsync(cancellation);
+
+                if ((combinedCancellationSource?.Token ?? disposal).IsCancellationRequested)
                 {
-                    combinedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellation, disposal);
+                    lockReleaser.Dispose();
+                    combinedCancellationSource?.Dispose();
+                    throw new OperationCanceledException();
                 }
             }
 
-            public CancellationToken ExternalCancellation => _externalCancellation;
-            public CancellationToken Cancellation => _combinedCancellationSource?.Token ?? Disposal;
-            public CancellationToken Disposal => _disposal;
+            return new DisposalGuard(combinedCancellationSource, lockReleaser, disposal, externalCancellation);
+        }
 
-            public void Dispose()
+        private static void GetBaseParameters(
+            AsyncDisposeHelper asyncDisposeHelper,
+            CancellationToken cancellation,
+            out CancellationTokenSource? combinedCancellationSource,
+            out CancellationToken disposal,
+            out CancellationToken externalCancellation)
+        {
+            var disposalCancellationSource = asyncDisposeHelper._disposalCancellationSource; // Volatile read op
+
+            if (cancellation.IsCancellationRequested ||
+                disposalCancellationSource == null ||
+                disposalCancellationSource.IsCancellationRequested)
             {
-                _lockReleaser?.Dispose();
-                _combinedCancellationSource?.Dispose();
+                throw new OperationCanceledException();
             }
+
+            externalCancellation = cancellation;
+            disposal = disposalCancellationSource.Token;
+            combinedCancellationSource = default;
+
+            if (cancellation.CanBeCanceled)
+            {
+                combinedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellation, disposal);
+            }
+        }
+
+        public CancellationToken ExternalCancellation => _externalCancellation;
+        public CancellationToken Cancellation => _combinedCancellationSource?.Token ?? Disposal;
+        public CancellationToken Disposal => _disposal;
+
+        public void Dispose()
+        {
+            _lockReleaser?.Dispose();
+            _combinedCancellationSource?.Dispose();
         }
     }
 
@@ -504,7 +506,7 @@ namespace AI4E.Utils.Async
     {
         public static void GuardDisposal(
             this AsyncDisposeHelper asyncDisposeHelper,
-            Action<AsyncDisposeHelper.DisposalGuard> action,
+            Action<DisposalGuard> action,
             CancellationToken cancellation = default)
         {
             if (asyncDisposeHelper == null)
@@ -513,15 +515,13 @@ namespace AI4E.Utils.Async
             if (action == null)
                 throw new ArgumentNullException(nameof(action));
 
-            using (var guard = asyncDisposeHelper.GuardDisposal(cancellation))
-            {
-                action(guard);
-            }
+            using var guard = asyncDisposeHelper.GuardDisposal(cancellation);
+            action(guard);
         }
 
         public static async ValueTask GuardDisposalAsync(
             this AsyncDisposeHelper asyncDisposeHelper,
-            Func<AsyncDisposeHelper.DisposalGuard, Task> func,
+            Func<DisposalGuard, Task> func,
             CancellationToken cancellation = default)
         {
             if (asyncDisposeHelper == null)
@@ -530,15 +530,13 @@ namespace AI4E.Utils.Async
             if (func == null)
                 throw new ArgumentNullException(nameof(func));
 
-            using (var guard = await asyncDisposeHelper.GuardDisposalAsync(cancellation))
-            {
-                await func(guard);
-            }
+            using var guard = await asyncDisposeHelper.GuardDisposalAsync(cancellation).ConfigureAwait(false);
+            await func(guard).ConfigureAwait(false);
         }
 
         public static async ValueTask GuardDisposalAsync(
             this AsyncDisposeHelper asyncDisposeHelper,
-            Func<AsyncDisposeHelper.DisposalGuard, ValueTask> func,
+            Func<DisposalGuard, ValueTask> func,
             CancellationToken cancellation = default)
         {
             if (asyncDisposeHelper == null)
@@ -547,10 +545,8 @@ namespace AI4E.Utils.Async
             if (func == null)
                 throw new ArgumentNullException(nameof(func));
 
-            using (var guard = await asyncDisposeHelper.GuardDisposalAsync(cancellation))
-            {
-                await func(guard);
-            }
+            using var guard = await asyncDisposeHelper.GuardDisposalAsync(cancellation).ConfigureAwait(false);
+            await func(guard).ConfigureAwait(false);
         }
     }
 }

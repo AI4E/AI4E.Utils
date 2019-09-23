@@ -130,7 +130,7 @@ namespace AI4E.Utils.ApplicationParts
                 if (string.Equals(assemblyName, attribute.AssemblyFileName, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(
-                       string.Format("{0} specified on {1} cannot be self referential.", nameof(RelatedAssemblyAttribute), assemblyName));
+                       $"{nameof(RelatedAssemblyAttribute)} specified on {assemblyName} cannot be self referential.");
                 }
 
                 var relatedAssemblyLocation = Path.Combine(assemblyDirectory, attribute.AssemblyFileName + ".dll");
@@ -139,7 +139,9 @@ namespace AI4E.Utils.ApplicationParts
                     if (throwOnError)
                     {
                         throw new FileNotFoundException(
-                            string.Format("Related assembly '{0}' specified by assembly '{1}' could not be found in the directory {2}. Related assemblies must be co-located with the specifying assemblies.", attribute.AssemblyFileName, assemblyName, assemblyDirectory),
+                            $"Related assembly '{attribute.AssemblyFileName}' specified by assembly '{assemblyName}' " +
+                            $"could not be found in the directory {assemblyDirectory}. " +
+                            $"Related assemblies must be co-located with the specifying assemblies.",
                             relatedAssemblyLocation);
                     }
                     else

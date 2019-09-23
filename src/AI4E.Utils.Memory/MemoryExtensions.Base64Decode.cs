@@ -34,7 +34,7 @@ namespace AI4E.Utils.Memory
 {
     public static partial class MemoryExtensions
     {
-        public static ArrayPoolExtension.ArrayPoolReleaser<byte> Base64Decode(this string str, out Memory<byte> bytes)
+        public static ArrayPoolReleaser<byte> Base64Decode(this string str, out Memory<byte> bytes)
         {
             if (str == null)
             {
@@ -44,7 +44,7 @@ namespace AI4E.Utils.Memory
             return Base64Decode(str.AsSpan(), out bytes);
         }
 
-        public static ArrayPoolExtension.ArrayPoolReleaser<byte> Base64Decode(in this ReadOnlySpan<char> chars, out Memory<byte> bytes)
+        public static ArrayPoolReleaser<byte> Base64Decode(in this ReadOnlySpan<char> chars, out Memory<byte> bytes)
         {
             var minBytesLength = Base64Coder.ComputeBase64DecodedLength(chars);
             var releaser = ArrayPool<byte>.Shared.RentExact(minBytesLength, out bytes);

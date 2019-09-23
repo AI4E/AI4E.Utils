@@ -35,27 +35,13 @@ namespace AI4E.Utils.Memory.Compatibility
 {
     public static class GuidHelper
     {
-        private static readonly CreateGuidShim _createGuidShim;
-        private static readonly ParseShim _parseShim;
-        private static readonly ParseExectShim _parseExectShim;     
-        private static readonly TryParseShim _tryParseShim;
-        private static readonly TryParseExactShim _tryParseExactShim;
+        private static readonly CreateGuidShim? _createGuidShim = BuildCreateGuidShim(typeof(Guid));
+        private static readonly ParseShim? _parseShim = BuildParseShim(typeof(Guid));
+        private static readonly ParseExectShim? _parseExectShim = BuildParseExactShim(typeof(Guid));
+        private static readonly TryParseShim? _tryParseShim = BuildTryParseShim(typeof(Guid));
+        private static readonly TryParseExactShim? _tryParseExactShim = BuildTryParseExactShim(typeof(Guid));
 
-        static GuidHelper()
-        {
-            var guidType = typeof(Guid);
-
-            if (guidType != null)
-            {
-                _createGuidShim = BuildCreateGuidShim(guidType);
-                _parseShim = BuildParseShim(guidType);
-                _parseExectShim = BuildParseExactShim(guidType);          
-                _tryParseShim = BuildTryParseShim(guidType);
-                _tryParseExactShim = BuildTryParseExactShim(guidType);              
-            }
-        }
-
-        private static CreateGuidShim BuildCreateGuidShim(Type guidType)
+        private static CreateGuidShim? BuildCreateGuidShim(Type guidType)
         {
             var ctor = guidType.GetConstructor(BindingFlags.Public | BindingFlags.Instance,
                                                Type.DefaultBinder,
@@ -73,7 +59,7 @@ namespace AI4E.Utils.Memory.Compatibility
             return lambda.Compile();
         }
 
-        private static ParseShim BuildParseShim(Type guidType)
+        private static ParseShim? BuildParseShim(Type guidType)
         {
             var parseMethod = guidType.GetMethod(nameof(Guid.Parse),
                                                  BindingFlags.Public | BindingFlags.Static,
@@ -94,7 +80,7 @@ namespace AI4E.Utils.Memory.Compatibility
             return lambda.Compile();
         }
 
-        private static ParseExectShim BuildParseExactShim(Type guidType)
+        private static ParseExectShim? BuildParseExactShim(Type guidType)
         {
             var parseExactMethod = guidType.GetMethod(nameof(Guid.ParseExact),
                                                  BindingFlags.Public | BindingFlags.Static,
@@ -116,7 +102,7 @@ namespace AI4E.Utils.Memory.Compatibility
             return lambda.Compile();
         }
 
-        private static TryParseShim BuildTryParseShim(Type guidType)
+        private static TryParseShim? BuildTryParseShim(Type guidType)
         {
             var tryParseMethod = guidType.GetMethod(nameof(Guid.TryParse),
                                                  BindingFlags.Public | BindingFlags.Static,
@@ -138,7 +124,7 @@ namespace AI4E.Utils.Memory.Compatibility
             return lambda.Compile();
         }
 
-        private static TryParseExactShim BuildTryParseExactShim(Type guidType)
+        private static TryParseExactShim? BuildTryParseExactShim(Type guidType)
         {
             var tryParseExactMethod = guidType.GetMethod(nameof(Guid.TryParseExact),
                                                   BindingFlags.Public | BindingFlags.Static,
@@ -159,7 +145,7 @@ namespace AI4E.Utils.Memory.Compatibility
             var call = Expression.Call(tryParseExactMethod, inputParameter, formatParameter, resultParameter);
             var lambda = Expression.Lambda<TryParseExactShim>(call, inputParameter, formatParameter, resultParameter);
             return lambda.Compile();
-        } 
+        }
 
         private delegate Guid CreateGuidShim(ReadOnlySpan<byte> b);
         private delegate Guid ParseShim(ReadOnlySpan<char> input);
@@ -242,6 +228,6 @@ namespace AI4E.Utils.Memory.Compatibility
             return Guid.TryParseExact(stringInput, stringFormat, out result);
         }
 
-        
+
     }
 }

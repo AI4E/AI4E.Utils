@@ -28,7 +28,7 @@
 
 using System;
 using System.Buffers;
-using static System.Diagnostics.Debug;
+using System.Diagnostics;
 
 namespace AI4E.Utils.Memory
 {
@@ -86,25 +86,51 @@ namespace AI4E.Utils.Memory
                 throw;
             }
         }
+    }
 
-        public readonly struct ArrayPoolReleaser<T> : IDisposable
+    public readonly struct ArrayPoolReleaser<T> : IDisposable, IEquatable<ArrayPoolReleaser<T>>
+    {
+        private readonly ArrayPool<T>? _arrayPool;
+        private readonly T[]? _array;
+
+        internal ArrayPoolReleaser(ArrayPool<T> arrayPool, T[] array)
         {
-            private readonly ArrayPool<T> _arrayPool;
-            private readonly T[] _array;
+            Debug.Assert(arrayPool != null);
+            Debug.Assert(array != null);
 
-            internal ArrayPoolReleaser(ArrayPool<T> arrayPool, T[] array)
-            {
-                Assert(arrayPool != null);
-                Assert(arrayPool != null);
+            _arrayPool = arrayPool;
+            _array = array;
+        }
 
-                _arrayPool = arrayPool;
-                _array = array;
-            }
+        public void Dispose()
+        {
+            _arrayPool?.Return(_array!);
+        }
 
-            public void Dispose()
-            {
-                _arrayPool?.Return(_array);
-            }
+        public bool Equals(ArrayPoolReleaser<T> other)
+        {
+            return (_arrayPool, _array) == (other._arrayPool, other._array);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is ArrayPoolReleaser<T> arrayPoolReleaser
+                 && Equals(arrayPoolReleaser);
+        }
+
+        public override int GetHashCode()
+        {
+            return (_arrayPool, _array).GetHashCode();
+        }
+
+        public static bool operator ==(ArrayPoolReleaser<T> left, ArrayPoolReleaser<T> right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(ArrayPoolReleaser<T> left, ArrayPoolReleaser<T> right)
+        {
+            return !left.Equals(right);
         }
     }
 }

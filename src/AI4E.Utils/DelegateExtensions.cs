@@ -26,18 +26,17 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AI4E.Utils
+namespace System
 {
     /// <summary>
     /// Contains helper for invoking all members of a delegate separately.
     /// </summary>
-    public static class EventInvocationHelper
+    public static class AI4EUtilsDelegateExtensions
     {
         /// <summary>
         /// Invokes all members of a delegate's invokation list.
@@ -57,8 +56,10 @@ namespace AI4E.Utils
             if (invocation == null)
                 throw new ArgumentNullException(nameof(invocation));
 
+#pragma warning disable CA1062
             var invocationList = @delegate.GetInvocationList();
-            List<Exception> capturedExceptions = null;
+#pragma warning restore CA1062
+            List<Exception>? capturedExceptions = null;
 
             foreach (var singlecastDelegate in invocationList)
             {
@@ -66,7 +67,9 @@ namespace AI4E.Utils
                 {
                     invocation((TDelegate)singlecastDelegate);
                 }
+#pragma warning disable CA1031
                 catch (Exception exc)
+#pragma warning restore CA1031
                 {
                     if (capturedExceptions == null)
                     {
@@ -158,8 +161,10 @@ namespace AI4E.Utils
             if (invocation == null)
                 throw new ArgumentNullException(nameof(invocation));
 
+#pragma warning disable CA1062
             var invocationList = @delegate.GetInvocationList();
-            List<Exception> capturedExceptions = null;
+#pragma warning restore CA1062
+            List<Exception>? capturedExceptions = null;
 
             List<Exception> GetCapturedExceptions()
             {
@@ -184,7 +189,9 @@ namespace AI4E.Utils
                 {
                     await invocation(singlecastDelegate);
                 }
+#pragma warning disable CA1031
                 catch (Exception exc)
+#pragma warning restore CA1031
                 {
                     var exceptions = GetCapturedExceptions();
 

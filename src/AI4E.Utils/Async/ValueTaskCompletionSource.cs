@@ -29,6 +29,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
@@ -51,7 +52,7 @@ namespace AI4E.Utils.Async
         private ValueTaskCompletionSource(ValueTaskSource<T> source)
         {
             Debug.Assert(source != null);
-            Debug.Assert(!source.Exhausted);
+            Debug.Assert(!source!.Exhausted);
 
             var token = source.Token;
 
@@ -121,7 +122,8 @@ namespace AI4E.Utils.Async
         }
 
         /// <summary>
-        /// Attempts to transition the underlying <see cref="ValueTask{TResult}"/> to the <c>CompletedSuccessfully</c> state.
+        /// Attempts to transition the underlying <see cref="ValueTask{TResult}"/>
+        /// to the <c>CompletedSuccessfully</c> state.
         /// </summary>
         /// <param name="result">The result value to bind to the <see cref="ValueTask{TResult}"/>.</param>
         /// <returns>A boolean value indicating whether the operation was successful.</returns>
@@ -209,11 +211,7 @@ namespace AI4E.Utils.Async
             throw new InvalidOperationException("An attempt was made to transition a value task to a final state when it had already completed");
         }
 
-        /// <summary>
-        /// Creates a new <see cref="ValueTaskCompletionSource{T}"/>.
-        /// </summary>
-        /// <returns>The created <see cref="ValueTaskCompletionSource{T}"/>.</returns>
-        public static ValueTaskCompletionSource<T> Create()
+        internal static ValueTaskCompletionSource<T> Create()
         {
             var source = ValueTaskSource<T>.Allocate();
             return new ValueTaskCompletionSource<T>(source);
@@ -226,7 +224,7 @@ namespace AI4E.Utils.Async
         }
 
         /// <inheritdoc/>
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is ValueTaskCompletionSource<T> valueTaskCompletionSource && Equals(valueTaskCompletionSource);
         }
@@ -272,7 +270,7 @@ namespace AI4E.Utils.Async
         private ValueTaskCompletionSource(ValueTaskSource<byte> source)
         {
             Debug.Assert(source != null);
-            Debug.Assert(!source.Exhausted);
+            Debug.Assert(!source!.Exhausted);
 
             var token = source.Token;
 
@@ -438,6 +436,15 @@ namespace AI4E.Utils.Async
             return new ValueTaskCompletionSource(source);
         }
 
+        /// <summary>
+        /// Creates a new <see cref="ValueTaskCompletionSource{T}"/>.
+        /// </summary>
+        /// <returns>The created <see cref="ValueTaskCompletionSource{T}"/>.</returns>
+        public static ValueTaskCompletionSource<T> Create<T>()
+        {
+            return ValueTaskCompletionSource<T>.Create();
+        }
+
         /// <inheritdoc/>
         public bool Equals(ValueTaskCompletionSource other)
         {
@@ -445,7 +452,7 @@ namespace AI4E.Utils.Async
         }
 
         /// <inheritdoc/>
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is ValueTaskCompletionSource valueTaskCompletionSource && Equals(valueTaskCompletionSource);
         }
@@ -479,25 +486,28 @@ namespace AI4E.Utils.Async
         }
     }
 
+#nullable disable
+
     // Based on: http://tooslowexception.com/implementing-custom-ivaluetasksource-async-without-allocations/
     internal sealed class ValueTaskSource<T> : IValueTaskSource<T>, IValueTaskSource
     {
         #region Pooling
 
-        static ValueTaskSource()
-        {
-            _pool = new DefaultObjectPool<ValueTaskSource<T>>(ValueTaskSourcePooledObjectPolicy.Instance);
-            _synchronizationContextPostStatePool = new DefaultObjectPool<SynchronizationContextPostState>(new DefaultPooledObjectPolicy<SynchronizationContextPostState>());
-            _executionContextRunStatePool = new DefaultObjectPool<ExecutionContextRunState>(new DefaultPooledObjectPolicy<ExecutionContextRunState>());
-        }
+        private static readonly ObjectPool<ValueTaskSource<T>> _pool
+            = new DefaultObjectPool<ValueTaskSource<T>>(ValueTaskSourcePooledObjectPolicy.Instance);
 
-        private static readonly ObjectPool<ValueTaskSource<T>> _pool;
-        private static readonly ObjectPool<SynchronizationContextPostState> _synchronizationContextPostStatePool;
-        private static readonly ObjectPool<ExecutionContextRunState> _executionContextRunStatePool;
+        private static readonly ObjectPool<SynchronizationContextPostState> _synchronizationContextPostStatePool
+            = new DefaultObjectPool<SynchronizationContextPostState>(
+                new DefaultPooledObjectPolicy<SynchronizationContextPostState>());
+
+        private static readonly ObjectPool<ExecutionContextRunState> _executionContextRunStatePool
+            = new DefaultObjectPool<ExecutionContextRunState>(
+                new DefaultPooledObjectPolicy<ExecutionContextRunState>());
 
         private sealed class ValueTaskSourcePooledObjectPolicy : PooledObjectPolicy<ValueTaskSource<T>>
         {
-            public static ValueTaskSourcePooledObjectPolicy Instance { get; } = new ValueTaskSourcePooledObjectPolicy();
+            public static ValueTaskSourcePooledObjectPolicy Instance { get; }
+                = new ValueTaskSourcePooledObjectPolicy();
 
             private ValueTaskSourcePooledObjectPolicy() { }
 
@@ -544,9 +554,12 @@ namespace AI4E.Utils.Async
             return TrySetCompleted(exception: null, result, token);
         }
 
+#pragma warning disable CA1068, IDE0060, CA1801
+        // TODO: Is there a way, we can pass in the cancellation token here?
         internal bool TryNotifyCompletion(CancellationToken cancellation, short token)
+#pragma warning restore CA1068, IDE0060, CA1801
         {
-            return TrySetCompleted(new TaskCanceledException(), result: default, token); // TODO: Is there a way, we can pass in the cancellation token here?
+            return TrySetCompleted(new TaskCanceledException(), result: default, token);
         }
 
         internal bool TryNotifyCompletion(Exception exception, short token)
@@ -721,7 +734,8 @@ namespace AI4E.Utils.Async
             return ValueTaskSourceStatus.Faulted;
         }
 
-        private bool TryGetNonDefaultTaskScheduler(out TaskScheduler taskScheduler)
+
+        private static bool TryGetNonDefaultTaskScheduler(out TaskScheduler taskScheduler)
         {
             taskScheduler = TaskScheduler.Current;
 
@@ -733,7 +747,7 @@ namespace AI4E.Utils.Async
             return taskScheduler != null;
         }
 
-        private bool TryGetNonDefaultSynchronizationContext(out SynchronizationContext synchronizationContext)
+        private static bool TryGetNonDefaultSynchronizationContext(out SynchronizationContext synchronizationContext)
         {
             synchronizationContext = SynchronizationContext.Current;
 
@@ -873,4 +887,6 @@ namespace AI4E.Utils.Async
             public object Scheduler { get; set; }
         }
     }
+
+#nullable enable
 }

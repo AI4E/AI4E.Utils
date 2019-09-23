@@ -35,7 +35,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AI4E.Utils.Proxying.Test", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AI4E.Utils.Test", "test\AI4E.Utils.Test\AI4E.Utils.Test.csproj", "{E5901C18-6FA4-4716-8E49-EFEEA750C3AE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI4E.Utils.Memory.Test", "test\AI4E.Utils.Memory.Test\AI4E.Utils.Memory.Test.csproj", "{15BFAB91-9D74-40B2-AD60-EC737A77AF7F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AI4E.Utils.Memory.Test", "test\AI4E.Utils.Memory.Test\AI4E.Utils.Memory.Test.csproj", "{15BFAB91-9D74-40B2-AD60-EC737A77AF7F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{0E451684-7006-41A3-AFD8-C6D9CB71E52C}"
+	ProjectSection(SolutionItems) = preProject
+		src\Shared\NullabilityAttributes.cs = src\Shared\NullabilityAttributes.cs
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -103,6 +108,7 @@ Global
 		{AF03E23E-4073-4B22-921D-983B6066A124} = {9E058709-CF12-408E-9B8F-CB18197B579F}
 		{E5901C18-6FA4-4716-8E49-EFEEA750C3AE} = {9E058709-CF12-408E-9B8F-CB18197B579F}
 		{15BFAB91-9D74-40B2-AD60-EC737A77AF7F} = {9E058709-CF12-408E-9B8F-CB18197B579F}
+		{0E451684-7006-41A3-AFD8-C6D9CB71E52C} = {54AF5FDE-F1DA-49BE-AE95-7C0513AB0E5D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {BDF1F2D2-0806-452F-82A6-5265BD96D3D3}

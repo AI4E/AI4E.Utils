@@ -35,14 +35,12 @@ namespace AI4E.Utils
 {
     public sealed class ParameterExpressionReplacer
     {
-        private static readonly ObjectPool<ReplacerExpressionVisitor> _pool;
+        private static readonly ObjectPool<ReplacerExpressionVisitor> _pool
+            = new DefaultObjectPool<ReplacerExpressionVisitor>(
+                new DefaultPooledObjectPolicy<ReplacerExpressionVisitor>());
 
-        static ParameterExpressionReplacer()
-        {
-            _pool = new DefaultObjectPool<ReplacerExpressionVisitor>(new DefaultPooledObjectPolicy<ReplacerExpressionVisitor>());
-        }
-
-        public static Expression ReplaceParameter(Expression expression, ParameterExpression parameter, Expression replacement)
+        public static Expression ReplaceParameter(
+            Expression expression, ParameterExpression parameter, Expression replacement)
         {
             if (expression == null)
                 throw new ArgumentNullException(nameof(expression));
@@ -62,13 +60,11 @@ namespace AI4E.Utils
 
         private sealed class ReplacerExpressionVisitor : ExpressionVisitor
         {
-            private ParameterExpression _parameterExpression;
-            private Expression _replacement;
+            private ParameterExpression? _parameterExpression;
+            private Expression? _replacement;
 
             public void SetExpressions(ParameterExpression parameterExpression, Expression replacement)
             {
-                Assert(parameterExpression != null);
-                Assert(replacement != null);
                 Assert(parameterExpression.Type.IsAssignableFrom(replacement.Type));
 
                 _parameterExpression = parameterExpression;
@@ -79,7 +75,7 @@ namespace AI4E.Utils
             {
                 if (node == _parameterExpression)
                 {
-                    return _replacement;
+                    return _replacement!;
                 }
 
                 return base.VisitParameter(node);

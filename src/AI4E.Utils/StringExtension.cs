@@ -26,22 +26,75 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
 using System.Linq;
 
-namespace AI4E.Utils
+namespace System
 {
-    public static class StringExtension
+    public static class AI4EUtilsStringExtension
     {
         public static bool ContainsWhitespace(this string str)
         {
-            if (str == null)
-                throw new ArgumentNullException(nameof(str));
-
-            if (str.Length == 0)
-                return false;
-
-            return str.Any(c => char.IsWhiteSpace(c));
+#pragma warning disable CA1062
+            return str.Length == 0 ? false : str.Any(c => char.IsWhiteSpace(c));
+#pragma warning restore CA1062
         }
+
+#if NETSTD20
+        public static int IndexOf(this string str, char value, StringComparison comparisonType)
+        {
+#pragma warning disable CA1062
+            return str.IndexOf(new string(value, count: 1), comparisonType);
+#pragma warning restore CA1062
+        }
+
+        public static bool Contains(this string str, string value, StringComparison comparisonType)
+        {
+#pragma warning disable CA1062
+            return str.IndexOf(value, comparisonType) >= 0;
+#pragma warning restore CA1062
+        }
+
+        public static string Replace(this string str, string oldValue, string? newValue, StringComparison comparisonType)
+        {
+            if (oldValue is null)
+                throw new ArgumentNullException(nameof(oldValue));
+
+            if (oldValue.Length == 0)
+                throw new ArgumentException("The argument must not be an empty string.", nameof(oldValue));
+
+            if (newValue is null)
+                throw new ArgumentNullException(nameof(newValue));
+
+#pragma warning disable CA1062
+            var index = str.IndexOf(oldValue, comparisonType);
+#pragma warning restore CA1062
+
+            while (index > 0)
+            {
+                var newStr = string.Empty;
+
+                if (index > 0)
+                {
+                    newStr = str.Substring(0, index);
+                }
+
+                if (!string.IsNullOrEmpty(newValue))
+                {
+                    newStr += newValue;
+                }
+
+                if (index + oldValue.Length < str.Length)
+                {
+                    newStr += str.Substring(index + oldValue.Length);
+                }
+
+                str = newStr;
+                index = str.IndexOf(oldValue, comparisonType);
+            }
+
+            return str;
+        }
+
+#endif
     }
 }

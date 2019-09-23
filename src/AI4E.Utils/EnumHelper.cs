@@ -40,18 +40,10 @@ namespace AI4E.Utils
         private static partial class EnumType<TEnum>
             where TEnum : struct, Enum
         {
-            public static bool IsFlagsEnum { get; }
-            private static readonly Func<TEnum, bool> _isEnumValue;
-            private static readonly Func<TEnum, bool> _isFlag;
-            private static readonly Func<TEnum, TEnum, bool> _hasFlag;
-
-            static EnumType()
-            {
-                IsFlagsEnum = IsFlagsEnumInternal();
-                _isEnumValue = GetEnumValueEvaluator();
-                _isFlag = GetFlagEvaluator();
-                _hasFlag = GetHasFlagEvaluator();
-            }
+            public static bool IsFlagsEnum { get; } = IsFlagsEnumInternal();
+            private static readonly Func<TEnum, bool> _isEnumValue= GetEnumValueEvaluator();
+            private static readonly Func<TEnum, bool> _isFlag= GetFlagEvaluator();
+            private static readonly Func<TEnum, TEnum, bool> _hasFlag = GetHasFlagEvaluator();
 
             public static bool IsEnumValue(TEnum value)
             {
@@ -71,9 +63,8 @@ namespace AI4E.Utils
             private static bool IsFlagsEnumInternal()
             {
                 var type = typeof(TEnum);
-
                 Assert(type != null);
-                Assert(type.IsEnum);
+                Assert(type!.IsEnum);
 
                 return type.GetCustomAttribute<FlagsAttribute>() != null;
             }
@@ -82,7 +73,7 @@ namespace AI4E.Utils
             {
                 var enumType = typeof(TEnum);
                 Assert(enumType != null);
-                Assert(enumType.IsEnum);
+                Assert(enumType!.IsEnum);
 
                 var underlyingType = Enum.GetUnderlyingType(enumType);
 
@@ -152,7 +143,7 @@ namespace AI4E.Utils
             {
                 var enumType = typeof(TEnum);
                 Assert(enumType != null);
-                Assert(enumType.IsEnum);
+                Assert(enumType!.IsEnum);
 
                 var underlyingType = Enum.GetUnderlyingType(enumType);
 
@@ -203,7 +194,7 @@ namespace AI4E.Utils
             {
                 var enumType = typeof(TEnum);
                 Assert(enumType != null);
-                Assert(enumType.IsEnum);
+                Assert(enumType!.IsEnum);
 
                 var underlyingType = Enum.GetUnderlyingType(enumType);
 

@@ -34,8 +34,6 @@ namespace AI4E.Utils.Memory
 {
     public static class BinaryReaderExtension
     {
-        private static readonly byte[] _emptyBytes = new byte[0];
-
         public static byte[] ReadBytes(this BinaryReader reader)
         {
             if (reader == null)
@@ -45,7 +43,7 @@ namespace AI4E.Utils.Memory
 
             if (length == 0)
             {
-                return _emptyBytes;
+                return Array.Empty<byte>();
             }
 
             return reader.ReadBytes(length);

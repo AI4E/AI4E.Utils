@@ -43,20 +43,18 @@ namespace AI4E.Utils.Async
     public sealed class AwaitableTypeDescriptor
     {
         private static readonly Type[] _singleActionParameter = new[] { typeof(Action) };
-        private static readonly ParameterModifier[] _emptyParameterModifiers = new ParameterModifier[0];
-        private static readonly ConcurrentDictionary<Type, AwaitableTypeDescriptor> _cache;
-        private static readonly MethodInfo _notifyCompletionOnCompletedMethod;
+        private static readonly ParameterModifier[] _emptyParameterModifiers = Array.Empty<ParameterModifier>();
 
-        static AwaitableTypeDescriptor()
-        {
-            _notifyCompletionOnCompletedMethod = typeof(INotifyCompletion).GetMethod(nameof(INotifyCompletion.OnCompleted),
-                                                                                     BindingFlags.Instance | BindingFlags.Public,
-                                                                                     Type.DefaultBinder,
-                                                                                     _singleActionParameter,
-                                                                                     _emptyParameterModifiers);
+        private static readonly ConcurrentDictionary<Type, AwaitableTypeDescriptor> _cache
+            = new ConcurrentDictionary<Type, AwaitableTypeDescriptor>();
 
-            _cache = new ConcurrentDictionary<Type, AwaitableTypeDescriptor>();
-        }
+        private static readonly MethodInfo _notifyCompletionOnCompletedMethod
+            = typeof(INotifyCompletion).GetMethod(
+                nameof(INotifyCompletion.OnCompleted),
+                BindingFlags.Instance | BindingFlags.Public,
+                Type.DefaultBinder,
+                _singleActionParameter,
+                _emptyParameterModifiers)!;
 
         /// <summary>
         /// Returns the descriptor for the specified type.
@@ -70,7 +68,6 @@ namespace AI4E.Utils.Async
                 throw new ArgumentNullException(nameof(type));
 
             var result = _cache.GetOrAdd(type, BuildTypeDescriptor);
-            Debug.Assert(result != null);
             return result;
         }
 
@@ -129,15 +126,17 @@ namespace AI4E.Utils.Async
             var instance = Expression.Parameter(typeof(object), "instance");
             var convertedInstance = Expression.Convert(instance, type);
             var getAwaiterCall = Expression.Call(convertedInstance, awaiterMethod);
-            var compiledGetAwaiterCall = Expression.Lambda<Func<object, object>>(Expression.Convert(getAwaiterCall, typeof(object)), instance).Compile();
+            var compiledGetAwaiterCall = Expression.Lambda<Func<object, object>>(
+                Expression.Convert(getAwaiterCall, typeof(object)), instance).Compile();
 
             var awaiter = Expression.Parameter(typeof(object), "awaiter");
             var convertedAwaiter = Expression.Convert(awaiter, awaiterType);
             var isCompletedPropertyAccess = Expression.Property(convertedAwaiter, isCompletedProperty);
-            var compiledIsCompletedPropertyAccess = Expression.Lambda<Func<object, bool>>(isCompletedPropertyAccess, awaiter).Compile();
+            var compiledIsCompletedPropertyAccess = Expression.Lambda<Func<object, bool>>(
+                isCompletedPropertyAccess, awaiter).Compile();
 
             var getResultCall = Expression.Call(convertedAwaiter, getResultMethod);
-            Func<object, object> compiledGetResultCall;
+            Func<object, object?> compiledGetResultCall;
 
             if (resultType == typeof(void))
             {
@@ -146,10 +145,12 @@ namespace AI4E.Utils.Async
             }
             else
             {
-                compiledGetResultCall = Expression.Lambda<Func<object, object>>(Expression.Convert(getResultCall, typeof(object)), awaiter).Compile();
+                compiledGetResultCall = Expression.Lambda<Func<object, object>>(
+                    Expression.Convert(getResultCall, typeof(object)), awaiter).Compile();
             }
 
-            // We search for an implicit interface implementation to prevent boxing for the case the type is a value type.
+            // We search for an implicit interface implementation
+            // to prevent boxing for the case the type is a value type.
             var onCompletedMethod = awaiterType.GetMethod(nameof(INotifyCompletion.OnCompleted),
                                                           BindingFlags.Instance | BindingFlags.Public,
                                                           Type.DefaultBinder,
@@ -166,16 +167,26 @@ namespace AI4E.Utils.Async
                 Debug.Assert(onCompletedMethod != null);
 
                 var convertedToInterfaceAwaiter = Expression.Convert(awaiter, typeof(INotifyCompletion));
-                var onCompletedMethodCall = Expression.Call(convertedToInterfaceAwaiter, onCompletedMethod, continuationParameter);
-                compiledOnCompletedCall = Expression.Lambda<Action<object, Action>>(onCompletedMethodCall, awaiter, continuationParameter).Compile();
+                var onCompletedMethodCall = Expression.Call(
+                    convertedToInterfaceAwaiter, onCompletedMethod, continuationParameter);
+                compiledOnCompletedCall = Expression.Lambda<Action<object, Action>>(
+                    onCompletedMethodCall, awaiter, continuationParameter).Compile();
             }
             else
             {
                 var onCompletedMethodCall = Expression.Call(convertedAwaiter, onCompletedMethod, continuationParameter);
-                compiledOnCompletedCall = Expression.Lambda<Action<object, Action>>(onCompletedMethodCall, awaiter, continuationParameter).Compile();
+                compiledOnCompletedCall = Expression.Lambda<Action<object, Action>>(
+                    onCompletedMethodCall, awaiter, continuationParameter).Compile();
             }
 
-            return new AwaitableTypeDescriptor(type, resultType, awaiterType, compiledGetAwaiterCall, compiledIsCompletedPropertyAccess, compiledOnCompletedCall, compiledGetResultCall);
+            return new AwaitableTypeDescriptor(
+                type,
+                resultType,
+                awaiterType,
+                compiledGetAwaiterCall,
+                compiledIsCompletedPropertyAccess,
+                compiledOnCompletedCall,
+                compiledGetResultCall);
         }
 
         internal AwaitableTypeDescriptor(
@@ -185,16 +196,8 @@ namespace AI4E.Utils.Async
             Func<object, object> getAwaiter,
             Func<object, bool> isCompleted,
             Action<object, Action> onCompleted,
-            Func<object, object> getResult)
+            Func<object, object?> getResult)
         {
-            Debug.Assert(type != null);
-            Debug.Assert(resultType != null);
-            Debug.Assert(awaiterType != null);
-            Debug.Assert(getAwaiter != null);
-            Debug.Assert(isCompleted != null);
-            Debug.Assert(onCompleted != null);
-            Debug.Assert(getResult != null);
-
             Type = type;
             ResultType = resultType;
             AwaiterType = awaiterType;
@@ -230,18 +233,20 @@ namespace AI4E.Utils.Async
         public Type Type { get; }
 
         /// <summary>
-        /// Gets the type that is the result of awaiting <see cref="Type"/> or <see cref="Type"/> if it is not awaitable.
+        /// Gets the type that is the result of awaiting <see cref="Type"/>
+        /// or <see cref="Type"/> if it is not awaitable.
         /// </summary>
         public Type ResultType { get; }
 
         /// <summary>
-        /// Gets the <see cref="System.Type"/> of awaiters of <see cref="Type"/> or null of it is not awaitable.
+        /// Gets the <see cref="System.Type"/> of awaiters of <see cref="Type"/>
+        /// or <c>null</c> of it is not awaitable.
         /// </summary>
-        public Type AwaiterType { get; }
-        internal Func<object, object> GetAwaiter { get; }
-        internal Func<object, bool> IsCompleted { get; }
-        internal Action<object, Action> OnCompleted { get; }
-        internal Func<object, object> GetResult { get; }
+        public Type? AwaiterType { get; }
+        internal Func<object, object>? GetAwaiter { get; }
+        internal Func<object, bool>? IsCompleted { get; }
+        internal Action<object, Action>? OnCompleted { get; }
+        internal Func<object, object?>? GetResult { get; }
 
         /// <summary>
         /// Gets an <see cref="AsyncTypeAwaitable"/> that can be used to await the specified instance.
@@ -249,7 +254,9 @@ namespace AI4E.Utils.Async
         /// <param name="instance">An <see cref="object"/> that needs to be awaited.</param>
         /// <returns>A <see cref="AsyncTypeAwaitable"/> that can be used to await <paramref name="instance"/>.</returns>
         /// <exception cref="ArgumentNullException">Thrown of <paramref name="instance"/> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown if <see cref="Type"/> is not assignable from the type of <paramref name="instance"/>.</exception>
+        /// <exception cref="ArgumentException">
+        /// Thrown if <see cref="Type"/> is not assignable from the type of <paramref name="instance"/>.
+        /// </exception>
         /// <remarks>
         /// If <see cref="Type"/> is not awaitable, this creates a wrapped around <paramref name="instance"/>
         /// that synachronously returns <paramref name="instance"/> when awaited.
@@ -260,7 +267,8 @@ namespace AI4E.Utils.Async
                 throw new ArgumentNullException(nameof(instance));
 
             if (!Type.IsAssignableFrom(instance.GetType()))
-                throw new ArgumentException($"The argument must be of type '{Type.ToString()}' or an assignable type.", nameof(instance));
+                throw new ArgumentException(
+                    $"The argument must be of type '{Type.ToString()}' or an assignable type.", nameof(instance));
 
             return new AsyncTypeAwaitable(this, instance);
         }
@@ -272,14 +280,15 @@ namespace AI4E.Utils.Async
     /// <remarks>
     /// This is not meant to be used directly but to be awaited via the compilers <c>await</c> keyword.
     /// </remarks>
+#pragma warning disable CA1815
     public readonly struct AsyncTypeAwaitable
+#pragma warning restore CA1815
     {
         private readonly AwaitableTypeDescriptor _awaitableTypeDescriptor;
         private readonly object _instance;
 
         internal AsyncTypeAwaitable(AwaitableTypeDescriptor awaitableTypeDescriptor, object instance)
         {
-            Debug.Assert(instance != null);
             Debug.Assert(awaitableTypeDescriptor.Type.IsAssignableFrom(instance.GetType()));
             _awaitableTypeDescriptor = awaitableTypeDescriptor;
             _instance = instance;
@@ -298,10 +307,13 @@ namespace AI4E.Utils.Async
         }
     }
 
+
     /// <summary>
     /// An awaiter for objects that need to be awaited.
     /// </summary>
+#pragma warning disable CA1815
     public readonly struct AsyncTypeAwaiter : INotifyCompletion
+#pragma warning restore CA1815
     {
         private readonly AwaitableTypeDescriptor _awaitableTypeDescriptor;
 
@@ -310,17 +322,14 @@ namespace AI4E.Utils.Async
 
         internal AsyncTypeAwaiter(AwaitableTypeDescriptor awaitableTypeDescriptor, object instance)
         {
-            Debug.Assert(instance != null);
-
             _awaitableTypeDescriptor = awaitableTypeDescriptor;
 
             if (awaitableTypeDescriptor.IsAwaitable)
             {
-                _instanceOrAwaiter = awaitableTypeDescriptor.IsAwaitable ?
-                                      awaitableTypeDescriptor.GetAwaiter(instance) : null;
+                _instanceOrAwaiter = awaitableTypeDescriptor.GetAwaiter!.Invoke(instance);
 
                 Debug.Assert(_instanceOrAwaiter != null);
-                Debug.Assert(awaitableTypeDescriptor.AwaiterType.IsAssignableFrom(_instanceOrAwaiter.GetType()));
+                Debug.Assert(awaitableTypeDescriptor.AwaiterType!.IsAssignableFrom(_instanceOrAwaiter!.GetType()));
             }
             else
             {
@@ -339,7 +348,7 @@ namespace AI4E.Utils.Async
                 if (!_awaitableTypeDescriptor.IsAwaitable)
                     return true;
 
-                return _awaitableTypeDescriptor.IsCompleted(_instanceOrAwaiter);
+                return _awaitableTypeDescriptor.IsCompleted!.Invoke(_instanceOrAwaiter);
             }
         }
 
@@ -350,23 +359,23 @@ namespace AI4E.Utils.Async
             {
                 if (_awaitableTypeDescriptor.IsAwaitable)
                 {
-                    _awaitableTypeDescriptor.OnCompleted(_instanceOrAwaiter, continuation);
+                    _awaitableTypeDescriptor.OnCompleted!.Invoke(_instanceOrAwaiter, continuation);
                 }
                 else
                 {
-                    continuation();
+                    continuation?.Invoke();
                 }
             }
         }
 
         /// <inheritdoc />
-        public object GetResult()
+        public object? GetResult()
         {
             if (_awaitableTypeDescriptor != null)
             {
                 if (_awaitableTypeDescriptor.IsAwaitable)
                 {
-                    return _awaitableTypeDescriptor.GetResult(_instanceOrAwaiter);
+                    return _awaitableTypeDescriptor.GetResult!.Invoke(_instanceOrAwaiter);
                 }
                 else
                 {

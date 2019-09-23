@@ -39,18 +39,10 @@ namespace System.IO
 {
     public static class BinaryWriterExtension
     {
-        private static readonly WriteBytesShim _writeBytesShim;
-        private static readonly WriteCharsShim _writeCharsShim;
+        private static readonly WriteBytesShim? _writeBytesShim = BuildWriteBytesShim(typeof(BinaryWriter));
+        private static readonly WriteCharsShim? _writeCharsShim = BuildWriteCharsShim(typeof(BinaryWriter));
 
-        static BinaryWriterExtension()
-        {
-            var binaryWriterType = typeof(BinaryWriter);
-
-            _writeBytesShim = BuildWriteBytesShim(binaryWriterType);
-            _writeCharsShim = BuildWriteCharsShim(binaryWriterType);
-        }
-
-        private static WriteBytesShim BuildWriteBytesShim(Type binaryWriterType)
+        private static WriteBytesShim? BuildWriteBytesShim(Type binaryWriterType)
         {
             var writeMethod = binaryWriterType.GetMethod(nameof(Write), new[] { typeof(ReadOnlySpan<byte>) });
 
@@ -65,7 +57,7 @@ namespace System.IO
             return Expression.Lambda<WriteBytesShim>(methodCall, binaryWriterParameter, bufferParameter).Compile();
         }
 
-        private static WriteCharsShim BuildWriteCharsShim(Type binaryWriterType)
+        private static WriteCharsShim? BuildWriteCharsShim(Type binaryWriterType)
         {
             var writeMethod = binaryWriterType.GetMethod(nameof(Write), new[] { typeof(ReadOnlySpan<char>) });
 
@@ -98,8 +90,7 @@ namespace System.IO
 
             var underlyingStream = writer.BaseStream;
             Assert(underlyingStream != null);
-
-            underlyingStream.Write(buffer);
+            underlyingStream!.Write(buffer);
         }
 
         public static void Write(this BinaryWriter writer, ReadOnlySpan<char> chars)
@@ -137,15 +128,15 @@ namespace System.IO
             writer.Write(str);
         }
 
-        private static readonly Lazy<Func<BinaryWriter, Encoding>> _encodingLookupLazy
-            = new Lazy<Func<BinaryWriter, Encoding>>(BuildEncodingLookup, LazyThreadSafetyMode.PublicationOnly);
+        private static readonly Lazy<Func<BinaryWriter, Encoding?>> _encodingLookupLazy
+            = new Lazy<Func<BinaryWriter, Encoding?>>(BuildEncodingLookup, LazyThreadSafetyMode.PublicationOnly);
 
-        private static Encoding TryGetEncoding(BinaryWriter writer)
+        private static Encoding? TryGetEncoding(BinaryWriter writer)
         {
             return _encodingLookupLazy.Value(writer);
         }
 
-        private static Func<BinaryWriter, Encoding> BuildEncodingLookup()
+        private static Func<BinaryWriter, Encoding?> BuildEncodingLookup()
         {
             var binaryWriterType = typeof(BinaryWriter);
             var encodingType = typeof(Encoding);

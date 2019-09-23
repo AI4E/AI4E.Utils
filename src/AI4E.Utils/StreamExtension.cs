@@ -26,24 +26,27 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AI4E.Utils
+namespace System.IO
 {
-    public static class StreamExtension
+    public static class AI4EUtilsStreamExtension
     {
-        public static async Task ReadExactAsync(this Stream stream, byte[] buffer, int offset, int count, CancellationToken cancellation)
+        public static async Task ReadExactAsync(
+            this Stream stream,
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellation)
         {
-            if (stream == null)
-                throw new ArgumentNullException(nameof(stream));
-
             while (count > 0)
             {
-                var readBytes = await stream.ReadAsync(buffer, offset, count, cancellation);
+#pragma warning disable CA1062
+                var readBytes = await stream.ReadAsync(buffer, offset, count, cancellation)
+#pragma warning restore CA1062
+                    .ConfigureAwait(false);
 
                 if (readBytes == 0)
                     throw new EndOfStreamException();
@@ -57,12 +60,11 @@ namespace AI4E.Utils
 
         public static void ReadExact(this Stream stream, byte[] buffer, int offset, int count)
         {
-            if (stream == null)
-                throw new ArgumentNullException(nameof(stream));
-
             while (count > 0)
             {
+#pragma warning disable CA1062
                 var readBytes = stream.Read(buffer, offset, count);
+#pragma warning restore CA1062
 
                 if (readBytes == 0)
                     throw new EndOfStreamException();
@@ -76,9 +78,6 @@ namespace AI4E.Utils
 
         public static async Task<byte[]> ToArrayAsync(this Stream stream)
         {
-            if (stream == null)
-                throw new ArgumentNullException(nameof(stream));
-
             if (stream == Stream.Null)
             {
                 return Array.Empty<byte>();
@@ -91,20 +90,27 @@ namespace AI4E.Utils
 
             using (memoryStream = new MemoryStream())
             {
-                await stream.CopyToAsync(memoryStream);
+#pragma warning disable CA1062
+                await stream.CopyToAsync(memoryStream).ConfigureAwait(false);
+#pragma warning restore CA1062
+                  
 
                 return memoryStream.ToArray();
             }
         }
 
-        public static async ValueTask<MemoryStream> ReadToMemoryAsync(this Stream stream, CancellationToken cancellation)
+        public static async ValueTask<MemoryStream> ReadToMemoryAsync(
+            this Stream stream,
+            CancellationToken cancellation)
         {
             if (stream is MemoryStream result)
             {
                 return result;
             }
 
+#pragma warning disable CA1062
             if (stream.CanSeek)
+#pragma warning restore CA1062
             {
                 if (stream.Length > int.MaxValue)
                     throw new InvalidOperationException("The streams size exceeds the readable limit.");
@@ -116,9 +122,9 @@ namespace AI4E.Utils
                 result = new MemoryStream();
             }
 
-            await stream.CopyToAsync(result, bufferSize: 1024, cancellation);
+            await stream.CopyToAsync(result, bufferSize: 1024, cancellation).ConfigureAwait(false);
             result.Position = 0;
             return result;
         }
-    }   
+    }
 }

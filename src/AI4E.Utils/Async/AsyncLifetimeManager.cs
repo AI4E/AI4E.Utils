@@ -92,7 +92,7 @@ namespace AI4E.Utils.Async
         {
             return async cancellation =>
             {
-                await initialization();
+                await initialization().ConfigureAwait(false);
                 return 0;
             };
         }
@@ -101,7 +101,7 @@ namespace AI4E.Utils.Async
         {
             return async cancellation =>
             {
-                await initialization(cancellation);
+                await initialization(cancellation).ConfigureAwait(false);
                 return 0;
             };
         }

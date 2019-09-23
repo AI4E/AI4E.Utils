@@ -27,24 +27,29 @@
  */
 
 using System;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils.Async
 {
-    public readonly struct AsyncInitializationHelper : IAsyncInitialization
+#pragma warning disable CA1001 
+    public readonly struct AsyncInitializationHelper : IAsyncInitialization, IEquatable<AsyncInitializationHelper>
+#pragma warning restore CA1001
     {
-        private readonly Task _initialization;
-        private readonly CancellationTokenSource _cancellation;
+        private readonly Task? _initialization; // This is null in case of a default struct value
+        private readonly CancellationTokenSource? _cancellation;
 
         public AsyncInitializationHelper(Func<CancellationToken, Task> initialization)
         {
             if (initialization == null)
                 throw new ArgumentNullException(nameof(initialization));
 
+            this = default;
+
             _cancellation = new CancellationTokenSource();
-            _initialization = initialization(_cancellation.Token);
+            _initialization = InitInternalAsync(initialization);
         }
 
         public AsyncInitializationHelper(Func<Task> initialization)
@@ -52,14 +57,38 @@ namespace AI4E.Utils.Async
             if (initialization == null)
                 throw new ArgumentNullException(nameof(initialization));
 
+            this = default;
+
             _cancellation = null;
-            _initialization = initialization();
+            _initialization = InitInternalAsync(initialization);
         }
 
-        internal AsyncInitializationHelper(Task initialization, CancellationTokenSource cancellation)
+        internal AsyncInitializationHelper(Task? initialization, CancellationTokenSource? cancellation)
         {
             _initialization = initialization;
             _cancellation = cancellation;
+        }
+
+        private async Task InitInternalAsync(Func<CancellationToken, Task> initialization)
+        {
+            Debug.Assert(_cancellation != null);
+
+            await Task.Yield();
+
+            try
+            {
+                await initialization(_cancellation!.Token).ConfigureAwait(false);
+            }
+            finally
+            {
+                _cancellation!.Dispose();
+            }
+        }
+
+        private async Task InitInternalAsync(Func<Task> initialization)
+        {
+            await Task.Yield();
+            await initialization().ConfigureAwait(false);
         }
 
         public Task Initialization => _initialization ?? Task.CompletedTask;
@@ -75,19 +104,53 @@ namespace AI4E.Utils.Async
 
             try
             {
-                await Initialization;
+                await Initialization.ConfigureAwait(false);
                 return true;
             }
-            catch { }
+#pragma warning disable CA1031
+            catch
+#pragma warning restore CA1031
+            {
+                return false;
+            }
+        }
 
-            return false;
+        /// <inheritdoc />
+        public bool Equals(AsyncInitializationHelper other)
+        {
+            return other._initialization == _initialization;
+        }
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj)
+        {
+            return obj is AsyncInitializationHelper asyncInitializationHelper
+                && Equals(asyncInitializationHelper);
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return _initialization?.GetHashCode() ?? 0;
+        }
+
+        public static bool operator ==(AsyncInitializationHelper left, AsyncInitializationHelper right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(AsyncInitializationHelper left, AsyncInitializationHelper right)
+        {
+            return !left.Equals(right);
         }
     }
 
-    public readonly struct AsyncInitializationHelper<T> : IAsyncInitialization
+#pragma warning disable CA1001
+    public readonly struct AsyncInitializationHelper<T> : IAsyncInitialization, IEquatable<AsyncInitializationHelper<T>>
+#pragma warning restore CA1001
     {
-        private readonly Task<T> _initialization;
-        private readonly CancellationTokenSource _cancellation;
+        private readonly Task<T>? _initialization; // This is null in case of a default struct value
+        private readonly CancellationTokenSource? _cancellation;
 
         public AsyncInitializationHelper(Func<CancellationToken, Task<T>> initialization)
         {
@@ -108,27 +171,32 @@ namespace AI4E.Utils.Async
             this = default;
 
             _cancellation = null;
-            _initialization = InitInternalAsync(initialization); ;
+            _initialization = InitInternalAsync(initialization);
         }
 
-        public Task<T> Initialization => _initialization ?? Task.FromResult<T>(default);
+        public Task<T> Initialization => _initialization ?? Task.FromResult<T>(default!); // TODO: We may not return null here!
 
         private async Task<T> InitInternalAsync(Func<CancellationToken, Task<T>> initialization)
         {
-            Assert(initialization != null);
+            Debug.Assert(_cancellation != null);
 
             await Task.Yield();
 
-            return await initialization(_cancellation.Token);
+            try
+            {
+                return await initialization(_cancellation!.Token).ConfigureAwait(false);
+            }
+            finally
+            {
+                _cancellation!.Dispose();
+            }
         }
 
         private async Task<T> InitInternalAsync(Func<Task<T>> initialization)
         {
-            Assert(initialization != null);
-
             await Task.Yield();
 
-            return await initialization();
+            return await initialization().ConfigureAwait(false);
         }
 
         Task IAsyncInitialization.Initialization => Initialization;
@@ -144,17 +212,54 @@ namespace AI4E.Utils.Async
 
             try
             {
-                var result = await Initialization;
+                var result = await Initialization.ConfigureAwait(false);
                 return (true, result);
             }
-            catch { }
-
-            return (false, default);
+#pragma warning disable CA1031
+            catch
+#pragma warning restore CA1031
+            {
+                return (false, default);
+            }
         }
 
         public static implicit operator AsyncInitializationHelper(AsyncInitializationHelper<T> source)
         {
-            return new AsyncInitializationHelper(source._initialization, source._cancellation);
+            return source.ToAsyncInitializationHelper();
+        }
+
+        public AsyncInitializationHelper ToAsyncInitializationHelper()
+        {
+            return new AsyncInitializationHelper(_initialization, _cancellation);
+        }
+
+        /// <inheritdoc />
+        public bool Equals(AsyncInitializationHelper<T> other)
+        {
+            return other._initialization == _initialization;
+        }
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj)
+        {
+            return obj is AsyncInitializationHelper asyncInitializationHelper
+                && Equals(asyncInitializationHelper);
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return _initialization?.GetHashCode() ?? 0;
+        }
+
+        public static bool operator ==(AsyncInitializationHelper<T> left, AsyncInitializationHelper<T> right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(AsyncInitializationHelper<T> left, AsyncInitializationHelper<T> right)
+        {
+            return !left.Equals(right);
         }
     }
 }

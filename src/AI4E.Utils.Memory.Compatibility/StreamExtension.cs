@@ -38,16 +38,18 @@ namespace System.IO
 {
     public static class StreamExtension
     {
-        private static readonly Func<Stream, Memory<byte>, CancellationToken, ValueTask<int>> _readAsyncShim;
-        private static readonly Func<Stream, ReadOnlyMemory<byte>, CancellationToken, ValueTask> _writeAsyncShim;
+        private static readonly Func<Stream, Memory<byte>, CancellationToken, ValueTask<int>>? _readAsyncShim;
+        private static readonly Func<Stream, ReadOnlyMemory<byte>, CancellationToken, ValueTask>? _writeAsyncShim;
 
-        private static readonly ReadShim _readShim;
-        private static readonly WriteShim _writeShim;
+        private static readonly ReadShim? _readShim;
+        private static readonly WriteShim? _writeShim;
 
         private delegate int ReadShim(Stream stream, Span<byte> buffer);
         private delegate void WriteShim(Stream stream, ReadOnlySpan<byte> buffer);
 
+#pragma warning disable CA1810
         static StreamExtension()
+#pragma warning restore CA1810
         {
             // Mono seems to define the methods but throws a NotImplementedException when called.
             // https://github.com/mono/mono/blob/c5b88ec4f323f2bdb7c7d0a595ece28dae66579c/mcs/class/corlib/corert/Stream.cs
@@ -153,7 +155,7 @@ namespace System.IO
 
             try
             {
-                var result = await stream.ReadAsync(array, offset: 0, buffer.Length, cancellationToken);
+                var result = await stream.ReadAsync(array, offset: 0, buffer.Length, cancellationToken).ConfigureAwait(false);
                 if (result > 0)
                 {
                     array.AsMemory().Slice(start: 0, length: result).CopyTo(buffer);
@@ -205,7 +207,7 @@ namespace System.IO
             {
                 buffer.CopyTo(array);
 
-                await stream.WriteAsync(array, offset: 0, buffer.Length, cancellationToken);
+                await stream.WriteAsync(array, offset: 0, buffer.Length, cancellationToken).ConfigureAwait(false);
             }
             finally
             {

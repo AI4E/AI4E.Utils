@@ -26,11 +26,9 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System.Threading;
-
-namespace AI4E.Utils
+namespace System.Threading
 {
-    public static class CancellationTokenExtension
+    public static class AI4EUtilsCancellationTokenExtension
     {
         public static bool ThrowOrContinue(this CancellationToken cancellationToken)
         {

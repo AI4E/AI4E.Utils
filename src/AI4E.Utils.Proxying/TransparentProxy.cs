@@ -26,7 +26,10 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#nullable disable
+
 using System;
+using System.ComponentModel;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,7 +40,10 @@ namespace AI4E.Utils.Proxying
     /// A base type for transparent proxies. This type is not meant to be used directly.
     /// </summary>
     /// <typeparam name="T">The type of dynamic proxy instance.</typeparam>
+#pragma warning disable CA1063
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public class TransparentProxy<T> : DispatchProxy, IProxyInternal
+#pragma warning restore CA1063
             where T : class
     {
         internal IProxyInternal Proxy { get; private set; }
@@ -72,12 +78,15 @@ namespace AI4E.Utils.Proxying
             return Proxy.ExecuteAsync(method, args);
         }
 
+#pragma warning disable CA1063, CA1033, CA1816
         void IDisposable.Dispose()
+#pragma warning restore CA1063, CA1033, CA1816
         {
             Proxy.Dispose();
         }
-
+#pragma warning disable CA1063, CA1033, CA1816
         ValueTask IAsyncDisposable.DisposeAsync()
+#pragma warning restore CA1063, CA1033, CA1816
         {
             return Proxy.DisposeAsync();
         }
@@ -92,27 +101,20 @@ namespace AI4E.Utils.Proxying
 
             var task = Proxy.ExecuteAsync(targetMethod, args);
 
-            if (typeof(Task).IsAssignableFrom(targetMethod.ReturnType))
+            if (targetMethod.ReturnType.IsTaskType(out var resultType))
             {
-                if (targetMethod.ReturnType.IsGenericType &&
-                   targetMethod.ReturnType.GetGenericArguments()[0] != Type.GetType("System.Threading.Tasks.VoidTaskResult"))
-                {
-                    // Convert the task to the correct type.
-                    return TaskConvertHelper.ConvertTask(task, targetMethod.ReturnType.GetGenericArguments()[0]);
-                }
-
-                return task;
+                // Convert the task to the correct type.
+                return task.Convert(resultType);
             }
             else if (typeof(void).IsAssignableFrom(targetMethod.ReturnType))
             {
-                // There is no result => Fire and forger
+                // There is no result => Fire and forget
                 return null;
             }
             else
             {
                 // We have to wait for the task's result.
-                task.ConfigureAwait(false).GetAwaiter().GetResult();
-                return task.GetResult();
+                return task.GetResultOrDefault();
             }
         }
 
@@ -131,3 +133,5 @@ namespace AI4E.Utils.Proxying
         }
     }
 }
+
+#nullable enable

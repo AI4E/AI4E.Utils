@@ -57,15 +57,21 @@ using System;
 
 namespace AI4E.Utils
 {
-    // Based on: https://github.com/khellang/Scrutor/blob/master/src/Scrutor/MissingTypeRegistrationException.cs
     public class MissingTypeRegistrationException : InvalidOperationException
     {
+        public MissingTypeRegistrationException() { }
+
+        public MissingTypeRegistrationException(string message) : base(message) { }
+
+        public MissingTypeRegistrationException(string message, Exception innerException)
+            : base(message, innerException) { }
+
         public MissingTypeRegistrationException(Type serviceType)
             : base($"Could not find any registered services for type '{serviceType.GetFriendlyName()}'.")
         {
             ServiceType = serviceType;
         }
 
-        public Type ServiceType { get; }
+        public Type? ServiceType { get; }
     }
 }

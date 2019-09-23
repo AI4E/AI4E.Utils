@@ -120,7 +120,10 @@ namespace AI4E.Utils.ApplicationParts
             }
         }
 
-        protected virtual DependencyContext LoadDependencyContext(Assembly assembly) => DependencyContext.Load(assembly);
+        protected virtual DependencyContext LoadDependencyContext(Assembly assembly)
+        {
+            return DependencyContext.Load(assembly);
+        }
 
         private List<AssemblyItem> ResolveFromDependencyContext(DependencyContext dependencyContext)
         {
@@ -141,7 +144,8 @@ namespace AI4E.Utils.ApplicationParts
                     {
                         var message = string.Join(
                             Environment.NewLine,
-                            string.Format("Each related assembly must be declared by exactly one assembly. The assembly '{0}' was declared as related assembly by the following:", relatedAssembly.FullName),
+                            $"Each related assembly must be declared by exactly one assembly. " +
+                            $"The assembly '{relatedAssembly.FullName}' was declared as related assembly by the following:",
                             otherEntry.Assembly.FullName,
                             assembly.FullName);
 
@@ -183,7 +187,8 @@ namespace AI4E.Utils.ApplicationParts
                 if (relatedAssembly.IsDefined(typeof(RelatedAssemblyAttribute)))
                 {
                     throw new InvalidOperationException(
-                       string.Format("Assembly '{0}' declared as a related assembly by assembly '{1}' cannot define additional related assemblies.", relatedAssembly.FullName, assembly.FullName));
+                       $"Assembly '{relatedAssembly.FullName}' declared as a related assembly by assembly " +
+                       $"'{assembly.FullName}' cannot define additional related assemblies.");
                 }
             }
 
@@ -220,7 +225,10 @@ namespace AI4E.Utils.ApplicationParts
                 {
                     if (compileLibrariesWithNoDuplicates.ContainsKey(library.Name))
                     {
-                        throw new InvalidOperationException(string.Format("A duplicate entry for library reference {0} was found. Please check that all package references in all projects use the same casing for the same package references.", library.Name));
+                        throw new InvalidOperationException(
+                            $"A duplicate entry for library reference {library.Name} was found. " +
+                            $"Please check that all package references in all projects use the same " +
+                            $"casing for the same package references.");
                     }
 
                     compileLibrariesWithNoDuplicates.Add(library.Name, CreateDependency(library, referenceAssemblies));

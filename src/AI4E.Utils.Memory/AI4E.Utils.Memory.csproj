@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>$(FrameworkVersions)</TargetFrameworks>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -22,7 +23,7 @@
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.2" />
   </ItemGroup>
 
-  <ItemGroup>   
+  <ItemGroup>
     <ProjectReference Include="..\AI4E.Utils\AI4E.Utils.csproj" />
   </ItemGroup>
 

@@ -26,30 +26,28 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using AI4E.Utils.Async;
 
-namespace AI4E.Utils
+namespace System.Diagnostics
 {
-    public static class ProcessExtension
+    public static class AI4EUtilsProcessExtension
     {
-        public static Task WaitForExitAsync(this Process process, CancellationToken cancellation = default)
+        public static ValueTask WaitForExitAsync(this Process process, CancellationToken cancellation = default)
         {
-            if (process == null)
-                throw new ArgumentNullException(nameof(process));
+            var tcs = ValueTaskCompletionSource.Create();
 
-            var tcs = new TaskCompletionSource<object>();
-
+#pragma warning disable CA1062
             process.EnableRaisingEvents = true;
-            process.Exited += (s, o) => tcs.TrySetResult(null);
+#pragma warning restore CA1062
+            process.Exited += (s, o) => tcs.TrySetResult();
 
             // This is needed in order to prevent a race condition when the process exits before we can setup our event handler.
             process.Refresh();
             if (process.HasExited)
             {
-                tcs.TrySetResult(null);
+                tcs.TrySetResult();
             }
 
             if (cancellation.CanBeCanceled)

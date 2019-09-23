@@ -26,6 +26,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#nullable disable
+
 using System;
 using System.Linq;
 using System.Linq.Expressions;
@@ -112,3 +114,5 @@ namespace AI4E.Utils.Proxying
         }
     }
 }
+
+#nullable enable

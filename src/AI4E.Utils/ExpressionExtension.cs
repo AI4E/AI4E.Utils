@@ -33,19 +33,15 @@ namespace System.Linq.Expressions
     /// <summary>
     /// Contains extensions for the <see cref="Expression"/> type.
     /// </summary>
-    public static class ExpressionExtension
+    public static class AI4EUtilsExpressionExtension
     {
         /// <summary>
         /// Evaluates the specified expression and returns the result.
         /// </summary>
         /// <param name="expression">The expression to evaluate.</param>
         /// <returns>The result of the expression evaluation.</returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="expression"/> is <c>null</c>.</exception>
-        public static object Evaluate(this Expression expression)
+        public static object? Evaluate(this Expression expression)
         {
-            if (expression == null)
-                throw new ArgumentNullException(nameof(expression));
-
             if (expression is ConstantExpression constant)
             {
                 return constant.Value;
@@ -60,7 +56,7 @@ namespace System.Linq.Expressions
                 }
             }
 
-            var valueFactory = Expression.Lambda<Func<object>>(Expression.Convert(expression, typeof(object))).Compile();
+            var valueFactory = Expression.Lambda<Func<object?>>(Expression.Convert(expression, typeof(object))).Compile();
 
             return valueFactory();
         }

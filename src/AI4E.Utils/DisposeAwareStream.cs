@@ -33,21 +33,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using AI4E.Utils.Async;
 using Microsoft.Extensions.Logging;
-using Nito.AsyncEx;
 
 namespace AI4E.Utils
 {
-    public sealed class DisposeAwareStream : Stream, IAsyncDisposable, IDisposable
+    public sealed class DisposeAwareStream : Stream, IAsyncDisposable
     {
-        private readonly NetworkStream _underlyingStream;
+#pragma warning disable IDE0069, CA2213
+        private readonly Stream _underlyingStream;
+#pragma warning restore IDE0069, CA2213
         private readonly Func<Task> _disposeOperation;
-        private readonly ILogger<DisposeAwareStream> _logger;
+        private readonly ILogger<DisposeAwareStream>? _logger;
         private readonly AsyncDisposeHelper _disposeHelper;
-        private readonly AsyncLock _writeLock = new AsyncLock();
 
-        public DisposeAwareStream(NetworkStream underlyingStream,
+        public DisposeAwareStream(Stream underlyingStream,
                                   Func<Task> disposeOperation,
-                                  ILogger<DisposeAwareStream> logger = null)
+                                  ILogger<DisposeAwareStream>? logger = null)
         {
             if (underlyingStream == null)
                 throw new ArgumentNullException(nameof(underlyingStream));
@@ -109,18 +109,26 @@ namespace AI4E.Utils
         {
             try
             {
-                var result = await _underlyingStream.ReadAsync(buffer, offset, count, cancellationToken);
+                var result = await _underlyingStream
+                    .ReadAsync(buffer, offset, count, cancellationToken)
+                    .ConfigureAwait(false);
 
                 if (result == 0)
                 {
-                    await _disposeHelper.DisposeAsync().AsTask().HandleExceptionsAsync(_logger);
+                    await _disposeHelper
+                        .DisposeAsync()
+                        .HandleExceptionsAsync(_logger)
+                        .ConfigureAwait(false);
                 }
 
                 return result;
             }
             catch (Exception exc) when (exc is SocketException || exc is IOException || exc is ObjectDisposedException)
             {
-                await _disposeHelper.DisposeAsync().AsTask().HandleExceptionsAsync(_logger);
+                await _disposeHelper
+                    .DisposeAsync()
+                    .HandleExceptionsAsync(_logger)
+                    .ConfigureAwait(false);
 
                 throw;
             }
@@ -150,11 +158,16 @@ namespace AI4E.Utils
         {
             try
             {
-                await _underlyingStream.WriteAsync(buffer, offset, count, cancellationToken);
+                await _underlyingStream
+                    .WriteAsync(buffer, offset, count, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (Exception exc) when (exc is SocketException || exc is IOException || exc is ObjectDisposedException)
             {
-                await _disposeHelper.DisposeAsync().AsTask().HandleExceptionsAsync(_logger);
+                await _disposeHelper
+                    .DisposeAsync()
+                    .HandleExceptionsAsync(_logger)
+                    .ConfigureAwait(false);
                 throw;
             }
         }
@@ -177,7 +190,11 @@ namespace AI4E.Utils
 
         public Task Disposal => _disposeHelper.Disposal;
 
+#if SUPPORTS_ASYNC_DISPOSABLE
+        public override ValueTask DisposeAsync()
+#else
         public ValueTask DisposeAsync()
+#endif
         {
             return _disposeHelper.DisposeAsync();
         }
@@ -192,8 +209,23 @@ namespace AI4E.Utils
 
         private async Task DisposeInternalAsync()
         {
-            ExceptionHelper.HandleExceptions(() => _underlyingStream.Close(), _logger);
-            await _disposeOperation().HandleExceptionsAsync(_logger);
+            try
+            {
+#if SUPPORTS_ASYNC_DISPOSABLE
+                await _underlyingStream
+                    .DisposeAsync()
+                    .HandleExceptionsAsync(_logger)
+                    .ConfigureAwait(false);
+#else
+                ExceptionHelper.HandleExceptions(() =>_underlyingStream.Dispose(), _logger);
+#endif
+            }
+            finally
+            {
+                await _disposeOperation()
+                    .HandleExceptionsAsync(_logger)
+                    .ConfigureAwait(false);
+            }
         }
 
         #endregion

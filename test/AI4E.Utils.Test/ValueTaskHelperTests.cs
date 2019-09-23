@@ -40,7 +40,7 @@ namespace AI4E.Utils
         [TestMethod]
         public void EmptyTaskCollectionTest()
         {
-            var task = ValueTaskHelper.WhenAll<int>(Enumerable.Empty<ValueTask<int>>(), preserveOrder: true);
+            var task = Enumerable.Empty<ValueTask<int>>().WhenAll(preserveOrder: true);
 
             Assert.IsTrue(task.IsCompletedSuccessfully);
             var result = task.GetAwaiter().GetResult(); // We are allowed only once to get the result.
@@ -51,7 +51,7 @@ namespace AI4E.Utils
         [TestMethod]
         public void EmptyTaskCollection2Test()
         {
-            var task = ValueTaskHelper.WhenAll<int>(Enumerable.Empty<ValueTask<int>>(), preserveOrder: false);
+            var task = Enumerable.Empty<ValueTask<int>>().WhenAll( preserveOrder: false);
 
             Assert.IsTrue(task.IsCompletedSuccessfully);
             var result = task.GetAwaiter().GetResult(); // We are allowed only once to get the result.
@@ -62,7 +62,7 @@ namespace AI4E.Utils
         [TestMethod]
         public void EmptyTaskCollectionNonGenericTest()
         {
-            var task = ValueTaskHelper.WhenAll(Enumerable.Empty<ValueTask>());
+            var task = Enumerable.Empty<ValueTask>().WhenAll();
 
             Assert.IsTrue(task.IsCompletedSuccessfully);
             task.GetAwaiter().GetResult();
@@ -78,7 +78,7 @@ namespace AI4E.Utils
                 taskSources[i] = ValueTaskCompletionSource<int>.Create();
             }
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: true);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: true);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -110,7 +110,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult(1);
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: true);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: true);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -139,7 +139,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult(1);
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: true);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: true);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -172,7 +172,7 @@ namespace AI4E.Utils
             taskSources[1].SetException(new CustomException());
 
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: true);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: true);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -204,7 +204,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult(1);
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: true);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: true);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -237,7 +237,7 @@ namespace AI4E.Utils
             taskSources[1].SetCanceled();
 
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: true);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: true);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -267,7 +267,7 @@ namespace AI4E.Utils
                 taskSources[i] = ValueTaskCompletionSource<int>.Create();
             }
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: false);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: false);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -298,7 +298,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult(1);
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: false);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: false);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -326,7 +326,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult(1);
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: false);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: false);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -357,7 +357,7 @@ namespace AI4E.Utils
             taskSources[1].SetException(new CustomException());
 
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: false);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: false);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -387,7 +387,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult(1);
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: false);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: false);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -418,7 +418,7 @@ namespace AI4E.Utils
             taskSources[1].SetCanceled();
 
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task), preserveOrder: false);
+            var task = taskSources.Select(p => p.Task).WhenAll(preserveOrder: false);
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -446,7 +446,7 @@ namespace AI4E.Utils
                 taskSources[i] = ValueTaskCompletionSource.Create();
             }
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task));
+            var task = taskSources.Select(p => p.Task).WhenAll();
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -474,7 +474,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult();
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task));
+            var task = taskSources.Select(p => p.Task).WhenAll();
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -499,7 +499,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult();
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task));
+            var task = taskSources.Select(p => p.Task).WhenAll();
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -530,7 +530,7 @@ namespace AI4E.Utils
             taskSources[1].SetException(new CustomException());
 
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task));
+            var task = taskSources.Select(p => p.Task).WhenAll();
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -560,7 +560,7 @@ namespace AI4E.Utils
 
             taskSources[1].SetResult();
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task));
+            var task = taskSources.Select(p => p.Task).WhenAll();
 
             Assert.IsFalse(task.IsCompleted);
 
@@ -591,7 +591,7 @@ namespace AI4E.Utils
             taskSources[1].SetCanceled();
 
 
-            var task = ValueTaskHelper.WhenAll(taskSources.Select(p => p.Task));
+            var task = taskSources.Select(p => p.Task).WhenAll();
 
             Assert.IsFalse(task.IsCompleted);
 

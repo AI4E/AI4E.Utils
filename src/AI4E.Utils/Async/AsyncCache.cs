@@ -45,11 +45,11 @@ namespace AI4E.Utils.Async
     public sealed class AsyncCache<T> : IDisposable
     {
         private readonly Func<CancellationToken, Task<T>> _operation;
-        private TaskCompletionSource<T> _tcs;
-        private Task _currentUpdate;
-        private CancellationTokenSource _currentUpdateCancellationSource;
+        private TaskCompletionSource<T>? _taskCompletionSource;
+        private Task? _currentUpdate;
+        private CancellationTokenSource? _currentUpdateCancellationSource;
         private readonly object _mutex = new object();
-        private volatile CancellationTokenSource _disposalCancellationSource;
+        private CancellationTokenSource? _disposalCancellationSource;
 
         /// <summary>
         /// Creates a new instance of the <see cref="AsyncCache{T}"/> type with the specified update operation.
@@ -83,45 +83,59 @@ namespace AI4E.Utils.Async
 
                 lock (_mutex)
                 {
-                    if (_tcs == null)
+                    if (_taskCompletionSource == null)
                     {
                         DoUpdateInternal();
                     }
 
-                    return _tcs.Task;
+                    return _taskCompletionSource!.Task;
                 }
             }
         }
 
         private void DoUpdateInternal()
         {
-            if (_tcs != null)
+            var disposalCancellationSource = Volatile.Read(ref _disposalCancellationSource);
+
+            if (disposalCancellationSource is null)
+            {
+                ThrowObjectDisposed();
+            }
+
+            if (_taskCompletionSource != null)
             {
                 Debug.Assert(_currentUpdateCancellationSource != null);
                 Debug.Assert(_currentUpdate != null);
 
-                _currentUpdateCancellationSource.Cancel();
+                _currentUpdateCancellationSource!.Cancel();
                 _currentUpdateCancellationSource.Dispose();
-                _currentUpdate.HandleExceptions();
+                _currentUpdate!.HandleExceptions();
             }
 
-            if (_tcs == null || _tcs.Task.Status != TaskStatus.WaitingForActivation)
+            if (_taskCompletionSource == null || _taskCompletionSource.Task.Status != TaskStatus.WaitingForActivation)
             {
-                _tcs = new TaskCompletionSource<T>();
+                _taskCompletionSource = new TaskCompletionSource<T>();
             }
 
-            _currentUpdateCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(_disposalCancellationSource.Token);
-            _currentUpdate = UpdateInternalAsync(_currentUpdateCancellationSource);
+            _currentUpdateCancellationSource
+                = CancellationTokenSource.CreateLinkedTokenSource(disposalCancellationSource!.Token);
+
+            _currentUpdate = UpdateInternalAsync(
+                _taskCompletionSource,
+                _currentUpdateCancellationSource,
+                disposalCancellationSource);
         }
 
-        private async Task UpdateInternalAsync(CancellationTokenSource cancellationTokenSource)
+        private async Task UpdateInternalAsync(
+             TaskCompletionSource<T> taskCompletionSource,
+            CancellationTokenSource cancellationTokenSource,
+            CancellationTokenSource disposedCancellationSource)
         {
-            CheckObjectDisposed(out var disposedCancellationSource);
             var cancellation = cancellationTokenSource.Token;
 
             try
             {
-                var result = await _operation(cancellation);
+                var result = await _operation(cancellation).ConfigureAwait(false);
 
                 lock (_mutex)
                 {
@@ -129,16 +143,16 @@ namespace AI4E.Utils.Async
                     {
                         if (disposedCancellationSource.IsCancellationRequested)
                         {
-                            _tcs.SetException(new ObjectDisposedException(GetType().FullName));
+                            taskCompletionSource.SetException(new ObjectDisposedException(GetType().FullName));
                         }
                         else
                         {
-                            _tcs.SetResult(result);
+                            taskCompletionSource.SetResult(result);
                         }
                     }
                 }
             }
-            catch (OperationCanceledException exc)
+            catch (OperationCanceledException)
             {
                 lock (_mutex)
                 {
@@ -146,22 +160,24 @@ namespace AI4E.Utils.Async
                     {
                         if (disposedCancellationSource.IsCancellationRequested)
                         {
-                            _tcs.SetException(new ObjectDisposedException(GetType().FullName));
+                            taskCompletionSource.SetException(new ObjectDisposedException(GetType().FullName));
                         }
                         else
                         {
-                            _tcs.SetCanceled();
+                            taskCompletionSource.SetCanceled();
                         }
                     }
                 }
             }
+#pragma warning disable CA1031
             catch (Exception exc)
+#pragma warning restore CA1031
             {
                 lock (_mutex)
                 {
                     if (cancellationTokenSource == _currentUpdateCancellationSource)
                     {
-                        _tcs.SetException(exc);
+                        taskCompletionSource.SetException(exc);
                     }
                 }
             }
@@ -183,7 +199,10 @@ namespace AI4E.Utils.Async
         /// <summary>
         /// Initiated a cache update and returns a task thats result contains the cached value.
         /// </summary>
-        /// <param name="cancellation">A <see cref="CancellationToken"/> used to cancel the asychronous operation or <see cref="CancellationToken.None"/>.</param>
+        /// <param name="cancellation">
+        /// A <see cref="CancellationToken"/> used to cancel the asychronous operation
+        /// or <see cref="CancellationToken.None"/>.
+        /// </param>
         /// <returns>A <see cref="Task{TResult}"/> thats result contains the cached value.</returns>
         public Task<T> UpdateAsync(CancellationToken cancellation = default)
         {
@@ -194,7 +213,7 @@ namespace AI4E.Utils.Async
             lock (_mutex)
             {
                 DoUpdateInternal();
-                task = _tcs.Task;
+                task = _taskCompletionSource!.Task;
             }
 
             return task.WithCancellation(cancellation);
@@ -211,14 +230,14 @@ namespace AI4E.Utils.Async
 
             lock (_mutex)
             {
-                if (_tcs != null)
+                if (_taskCompletionSource != null)
                 {
                     Debug.Assert(_currentUpdateCancellationSource != null);
                     Debug.Assert(_currentUpdate != null);
 
-                    _currentUpdateCancellationSource.Cancel();
+                    _currentUpdateCancellationSource!.Cancel();
                     _currentUpdateCancellationSource.Dispose();
-                    _currentUpdate.HandleExceptions();
+                    _currentUpdate!.HandleExceptions();
                 }
             }
         }
@@ -234,7 +253,7 @@ namespace AI4E.Utils.Async
 
         private void CheckObjectDisposed(out CancellationTokenSource disposalCancellationSource)
         {
-            disposalCancellationSource = _disposalCancellationSource; // Volatile read op
+            disposalCancellationSource = Volatile.Read(ref _disposalCancellationSource)!;
 
             if (disposalCancellationSource == null || disposalCancellationSource.IsCancellationRequested)
                 ThrowObjectDisposed();

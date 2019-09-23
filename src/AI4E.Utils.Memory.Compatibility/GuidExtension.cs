@@ -26,30 +26,20 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using AI4E.Utils.Memory.Compatibility;
-using static System.Diagnostics.Debug;
 
 namespace System
 {
     public static class GuidExtension
     {
-        private static readonly TryFormatShim _tryFormatShim;
-        private static readonly TryWriteBytesShim _tryWriteBytesShim;
+        private static readonly TryFormatShim? _tryFormatShim = BuildTryFormatShim(typeof(Guid));
+        private static readonly TryWriteBytesShim? _tryWriteBytesShim = BuildTryWriteBytesShim(typeof(Guid));
 
-        static GuidExtension()
-        {
-            var guidType = typeof(Guid);
-
-            if (guidType != null)
-            {
-                _tryFormatShim = BuildTryFormatShim(guidType);
-                _tryWriteBytesShim = BuildTryWriteBytesShim(guidType);
-            }
-        }
-
-        private static TryFormatShim BuildTryFormatShim(Type guidType)
+        private static TryFormatShim? BuildTryFormatShim(Type guidType)
         {
             var tryFormatMethod = guidType.GetMethod("TryFormat",
                                                      BindingFlags.Public | BindingFlags.Instance,
@@ -62,7 +52,7 @@ namespace System
                 return null;
             }
 
-            Assert(tryFormatMethod.ReturnType == typeof(bool));
+            Debug.Assert(tryFormatMethod.ReturnType == typeof(bool));
 
             var guidParameter = Expression.Parameter(typeof(Guid), "guid");
             var destinationParameter = Expression.Parameter(typeof(Span<char>), "destination");
@@ -74,7 +64,7 @@ namespace System
             return lambda.Compile();
         }
 
-        private static TryWriteBytesShim BuildTryWriteBytesShim(Type guidType)
+        private static TryWriteBytesShim? BuildTryWriteBytesShim(Type guidType)
         {
             var tryWriteBytesMethod = guidType.GetMethod("TryWriteBytes",
                                                          BindingFlags.Public | BindingFlags.Instance,
@@ -87,7 +77,7 @@ namespace System
                 return null;
             }
 
-            Assert(tryWriteBytesMethod.ReturnType == typeof(bool));
+            Debug.Assert(tryWriteBytesMethod.ReturnType == typeof(bool));
 
             var guidParameter = Expression.Parameter(typeof(Guid), "guid");
             var destinationParameter = Expression.Parameter(typeof(Span<byte>), "destination");
@@ -100,7 +90,9 @@ namespace System
         private delegate bool TryFormatShim(Guid guid, Span<char> destination, out int charsWritten, ReadOnlySpan<char> format);
         private delegate bool TryWriteBytesShim(Guid guid, Span<byte> destination);
 
+#pragma warning disable CA1720
         public static bool TryFormat(in this Guid guid, Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default)
+#pragma warning restore CA1720
         {
             if (_tryFormatShim != null)
             {
@@ -108,7 +100,7 @@ namespace System
             }
 
             var stringFormat = (format.IsEmpty || format.IsWhiteSpace()) ? null : StringHelper.Create(format);
-            var result = guid.ToString(stringFormat);
+            var result = guid.ToString(stringFormat, CultureInfo.InvariantCulture);
 
             if (result.Length > destination.Length)
             {
@@ -122,7 +114,9 @@ namespace System
             return true;
         }
 
+#pragma warning disable CA1720
         public static bool TryWriteBytes(in this Guid guid, Span<byte> destination)
+#pragma warning restore CA1720
         {
             if (_tryWriteBytesShim != null)
             {

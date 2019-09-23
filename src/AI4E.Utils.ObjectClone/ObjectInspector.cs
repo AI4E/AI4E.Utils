@@ -71,21 +71,26 @@ namespace AI4E.Utils
         private static readonly ConcurrentDictionary<Type, bool> _isStructTypeToDeepCopy = new ConcurrentDictionary<Type, bool>();
 
         // We cache the delegates for perf reasons.
-#pragma warning disable HAA0603 // Delegate allocation from a method group
+#pragma warning disable HAA0603
         private static readonly Func<Type, bool> _isStructTypeToDeepCopyFactory = IsStructWhichNeedsDeepCopyFactory;
         private static readonly Func<Type, bool> _isClassOtherThanString = TypeExtension.IsClassOtherThanString;
-#pragma warning restore HAA0603 // Delegate allocation from a method group
+#pragma warning restore HAA0603
 
         #endregion
 
         public static FieldInfo[] GetFieldsToCopy(this Type type)
         {
+            if (type is null)
+                throw new NullReferenceException();
+
             return GetAllRelevantFields(type, forceAllFields: false);
         }
 
         public static bool IsTypeToDeepCopy(this Type type)
         {
+#pragma warning disable CA1062
             return type.IsClassOtherThanString() || IsStructWhichNeedsDeepCopy(type);
+#pragma warning restore CA1062
         }
 
         private static FieldInfo[] GetAllRelevantFields(Type type, bool forceAllFields)
@@ -137,8 +142,7 @@ namespace AI4E.Utils
 
         private static bool HasInItsHierarchyFieldsWithClasses(Type type, HashSet<Type> alreadyCheckedTypes = null)
         {
-            alreadyCheckedTypes = alreadyCheckedTypes ?? new HashSet<Type>();
-
+            alreadyCheckedTypes ??= new HashSet<Type>();
             alreadyCheckedTypes.Add(type);
 
             var allFields = GetAllFields(type);

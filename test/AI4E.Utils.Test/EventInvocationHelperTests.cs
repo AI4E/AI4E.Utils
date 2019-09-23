@@ -62,7 +62,7 @@ namespace AI4E.Utils
             @delegate += Action2;
             @delegate += Action3;
 
-            EventInvocationHelper.InvokeAll(@delegate, d => d());
+            AI4EUtilsDelegateExtensions.InvokeAll(@delegate, d => d());
 
             Assert.IsTrue(actionInvoked.All());
         }
@@ -96,7 +96,7 @@ namespace AI4E.Utils
 
             Assert.ThrowsException<CustomException>(() =>
             {
-                EventInvocationHelper.InvokeAll(@delegate, d => d());
+                AI4EUtilsDelegateExtensions.InvokeAll(@delegate, d => d());
             });
 
             Assert.IsTrue(actionInvoked.All());
@@ -132,7 +132,7 @@ namespace AI4E.Utils
 
             var exception = Assert.ThrowsException<AggregateException>(() =>
             {
-                EventInvocationHelper.InvokeAll(@delegate, d => d());
+                AI4EUtilsDelegateExtensions.InvokeAll(@delegate, d => d());
             });
 
             Assert.IsTrue(actionInvoked.All());
@@ -170,7 +170,7 @@ namespace AI4E.Utils
             @delegate += Action2;
             @delegate += Action3;
 
-            await EventInvocationHelper.InvokeAllAsync(@delegate, d => d());
+            await AI4EUtilsDelegateExtensions.InvokeAllAsync(@delegate, d => d());
 
             Assert.IsTrue(actionInvoked.All());
         }
@@ -206,7 +206,7 @@ namespace AI4E.Utils
 
             await Assert.ThrowsExceptionAsync<CustomException>(async () =>
             {
-                await EventInvocationHelper.InvokeAllAsync(@delegate, d => d());
+                await AI4EUtilsDelegateExtensions.InvokeAllAsync(@delegate, d => d());
             });
 
             Assert.IsTrue(actionInvoked.All());
@@ -245,7 +245,7 @@ namespace AI4E.Utils
 
             var exception = await Assert.ThrowsExceptionAsync<AggregateException>(async () =>
             {
-                await EventInvocationHelper.InvokeAllAsync(@delegate, d => d());
+                await AI4EUtilsDelegateExtensions.InvokeAllAsync(@delegate, d => d());
             });
 
             Assert.IsTrue(actionInvoked.All());

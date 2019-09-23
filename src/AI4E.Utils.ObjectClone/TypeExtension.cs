@@ -31,13 +31,8 @@ using System;
 
 namespace AI4E.Utils
 {
-    public static class TypeExtension
+    internal static class TypeExtension
     {
-        public static bool IsArray(this Type type)
-        {
-            return type.IsArray;
-        }
-
         public static bool IsDelegate(this Type type)
         {
             return typeof(Delegate).IsAssignableFrom(type);

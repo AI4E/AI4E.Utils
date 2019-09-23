@@ -26,46 +26,52 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
-namespace AI4E.Utils
+namespace System.Collections.Generic
 {
-    public static class DictionaryExtension
+    public static class AI4EUtilsDictionaryExtension
     {
         // https://blogs.msdn.microsoft.com/pfxteam/2011/04/02/little-known-gems-atomic-conditional-removals-from-concurrentdictionary/
-        public static bool Remove<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, TValue comparison)
+        public static bool Remove<TKey, TValue>(
+            this IDictionary<TKey, TValue> dictionary, TKey key, TValue comparison)
+            where TKey : notnull
         {
-            if (dictionary == null)
-                throw new ArgumentNullException(nameof(dictionary));
-
+#pragma warning disable CA1062
             return dictionary.Remove(new KeyValuePair<TKey, TValue>(key, comparison));
+#pragma warning restore CA1062
         }
 
-        public static bool Remove<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, out TValue value)
+#if NETSTD20
+        public static bool Remove<TKey, TValue>(
+            this IDictionary<TKey, TValue> dictionary, TKey key, [MaybeNullWhen(false)]out TValue value)
+            where TKey : notnull
         {
             if (dictionary is ConcurrentDictionary<TKey, TValue> concurrentDictionary)
                 return concurrentDictionary.TryRemove(key, out value);
 
+#pragma warning disable CA1062
             if (dictionary.ContainsKey(key))
+#pragma warning restore CA1062
             {
                 value = dictionary[key];
                 dictionary.Remove(key);
                 return true;
             }
 
-            value = default;
+            value = default!;
             return false;
         }
 
-#if NETSTANDARD
-        public static bool TryAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, TValue value)
-        {
-            if (dictionary == null)
-                throw new ArgumentNullException(nameof(dictionary));
 
+        public static bool TryAdd<TKey, TValue>(
+            this IDictionary<TKey, TValue> dictionary, TKey key, TValue value)
+            where TKey : notnull
+        {
+#pragma warning disable CA1062
             if (dictionary.ContainsKey(key))
+#pragma warning restore CA1062
             {
                 return false;
             }
@@ -75,28 +81,29 @@ namespace AI4E.Utils
         }
 #endif
 
-        public static TValue GetOrAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, TValue value)
+        public static TValue GetOrAdd<TKey, TValue>(
+            this IDictionary<TKey, TValue> dictionary, TKey key, TValue value)
+            where TKey : notnull
         {
-            if (dictionary == null)
-                throw new ArgumentNullException(nameof(dictionary));
-
+#pragma warning disable CA1062
             if (dictionary.TryGetValue(key, out var result))
+#pragma warning restore CA1062
                 return result;
 
             dictionary.Add(key, value);
             return value;
-
         }
 
-        public static TValue GetOrAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> factory)
+        public static TValue GetOrAdd<TKey, TValue>(
+            this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> factory)
+            where TKey : notnull
         {
-            if (dictionary == null)
-                throw new ArgumentNullException(nameof(dictionary));
-
             if (factory == null)
                 throw new ArgumentNullException(nameof(factory));
 
+#pragma warning disable CA1062
             if (dictionary.TryGetValue(key, out var result))
+#pragma warning restore CA1062
                 return result;
 
             result = factory(key);

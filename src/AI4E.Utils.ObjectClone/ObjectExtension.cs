@@ -56,8 +56,7 @@
 * --------------------------------------------------------------------------------------------------------------------
 */
 
-
-using System;
+#pragma warning disable CA1720 
 
 namespace AI4E.Utils
 {
@@ -91,3 +90,4 @@ namespace AI4E.Utils
         }
     }
 }
+#pragma warning restore CA1720

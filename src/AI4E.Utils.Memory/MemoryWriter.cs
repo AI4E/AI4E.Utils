@@ -26,6 +26,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+ #pragma warning disable CA1815
+
 using System;
 using static System.Diagnostics.Debug;
 
@@ -73,3 +75,5 @@ namespace AI4E.Utils.Memory
         LittleEndian
     }
 }
+
+#pragma warning restore CA1815

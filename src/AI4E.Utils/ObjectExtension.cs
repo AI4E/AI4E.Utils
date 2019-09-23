@@ -26,36 +26,30 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
-namespace AI4E.Utils
+namespace System
 {
-    public static class ObjectExtension
+    public static class AI4EUtilsObjectExtension
     {
+#pragma warning disable CA1720
         public static void DisposeIfDisposable(this object obj)
+#pragma warning restore CA1720
         {
-            if (obj == null)
-                throw new ArgumentNullException(nameof(obj));
-
             if (obj is IDisposable disposable)
             {
                 disposable.Dispose();
             }
         }
 
-        // TODO: Return ValueTask
-        public static Task DisposeIfDisposableAsync(this object obj)
+#pragma warning disable CA1720
+        public static ValueTask DisposeIfDisposableAsync(this object obj)
+#pragma warning restore CA1720
         {
-            if (obj == null)
-                throw new ArgumentNullException(nameof(obj));
-
             if (obj is IAsyncDisposable asyncDisposable)
             {
-                return asyncDisposable.DisposeAsync().AsTask();
+                return asyncDisposable.DisposeAsync();
             }
 
             if (obj is IDisposable disposable)
@@ -63,10 +57,12 @@ namespace AI4E.Utils
                 disposable.Dispose();
             }
 
-            return Task.CompletedTask;
+            return default;
         }
 
+#pragma warning disable CA1720
         public static IEnumerable<object> Yield(this object obj)
+#pragma warning restore CA1720
         {
             yield return obj;
         }
@@ -74,35 +70,6 @@ namespace AI4E.Utils
         public static IEnumerable<T> Yield<T>(this T t)
         {
             yield return t;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T Assert<T>(this T t, Func<T, bool> assertion)
-        {
-            Debug.Assert(assertion(t));
-
-            return t;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T Assert<T>(this T t, Func<T, bool> precondition, Func<T, bool> assertion)
-        {
-            if (precondition(t))
-            {
-                Debug.Assert(assertion(t));
-            }
-
-            return t;
-        }
-
-        public static async Task<T> AssertAsync<T>(this Task<T> task, Func<T, bool> assertion)
-        {
-            return (await task).Assert(assertion);
-        }
-
-        public static async Task<T> AssertAsync<T>(this Task<T> task, Func<T, bool> precondition, Func<T, bool> assertion)
-        {
-            return (await task).Assert(precondition, assertion);
         }
     }
 }

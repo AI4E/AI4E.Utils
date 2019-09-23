@@ -36,10 +36,9 @@ namespace AI4E.Utils.Async
     public sealed class OneTimeOperation
     {
         private readonly Func<Task> _operation;
-        private readonly TaskCompletionSource<object> _executionSource = new TaskCompletionSource<object>();
-        private readonly object _lock = new object();
+        private readonly TaskCompletionSource<object?> _executionSource = new TaskCompletionSource<object?>();
 
-        private Task _executeTask;
+        private Task? _executeTask;
         private volatile bool _hasStarted = false;
 
         public OneTimeOperation(Func<Task> operation)
@@ -92,7 +91,7 @@ namespace AI4E.Utils.Async
             {
                 try
                 {
-                    await _operation();
+                    await _operation().ConfigureAwait(false);
                 }
                 catch (OperationCanceledException exc)
                 {
@@ -112,7 +111,9 @@ namespace AI4E.Utils.Async
                     executionSourceSetLocally = true;
 #endif
                 }
+#pragma warning disable CA1031
                 catch (Exception exc)
+#pragma warning restore CA1031
                 {
                     var successfullySetExecutionSource = _executionSource.TrySetException(exc);
 

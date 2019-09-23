@@ -28,13 +28,14 @@
 
 // Based on: http://www.singular.co.nz/2007/12/shortguid-a-shorter-and-url-friendly-guid-in-c-sharp/
 
+#pragma warning disable CA2225, CA1720
+
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 
 namespace AI4E.Utils
-
 {
     /// <summary>
     /// Represents a globally unique identifier (GUID) with a
@@ -52,7 +53,7 @@ namespace AI4E.Utils
         public static SGuid Empty { get; } = new SGuid();
 
         private static readonly string _emptyValue = Encode(Guid.Empty);
-        private readonly string _value;
+        private readonly string? _value;
 
         #endregion
 
@@ -82,6 +83,7 @@ namespace AI4E.Utils
 
         #region Properties
 
+
         /// <summary>
         /// Gets the underlying Guid.
         /// </summary>
@@ -90,7 +92,7 @@ namespace AI4E.Utils
         /// <summary>
         /// Gets the underlying base64 encoded string
         /// </summary>
-        public string Value => Guid == Guid.Empty ? _emptyValue : _value;
+        public string Value => _value ?? _emptyValue;
 
         #endregion
 
@@ -115,7 +117,7 @@ namespace AI4E.Utils
         /// </summary>
         /// <param name="obj">The object to compare</param>
         /// <returns></returns>
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is SGuid sguid && Equals(sguid);
         }
@@ -164,8 +166,8 @@ namespace AI4E.Utils
         {
             var encoded = Convert.ToBase64String(guid.ToByteArray());
             encoded = encoded
-              .Replace("/", "_")
-              .Replace("+", "-");
+              .Replace("/", "_", StringComparison.Ordinal)
+              .Replace("+", "-", StringComparison.Ordinal);
             return encoded.Substring(0, 22);
         }
 
@@ -184,8 +186,8 @@ namespace AI4E.Utils
                 throw new ArgumentNullException(nameof(value));
 
             value = value
-              .Replace("_", "/")
-              .Replace("-", "+");
+              .Replace("_", "/", StringComparison.Ordinal)
+              .Replace("-", "+", StringComparison.Ordinal);
             var buffer = Convert.FromBase64String(value + "==");
 
             if (buffer.Length != 16)
@@ -229,7 +231,7 @@ namespace AI4E.Utils
         /// <returns></returns>
         public static implicit operator string(SGuid shortGuid)
         {
-            return shortGuid._value;
+            return shortGuid.Value;
         }
 
         /// <summary>
@@ -285,19 +287,13 @@ namespace AI4E.Utils
 
         public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
         {
-            switch (value)
+            return value switch
             {
-                case SGuid sguid:
-                    return sguid;
-
-                case Guid guid:
-                    return new SGuid(guid);
-
-                case string str:
-                    return new SGuid(str);
-            }
-
-            return base.ConvertFrom(context, culture, value);
+                SGuid sguid => sguid,
+                Guid guid => new SGuid(guid),
+                string str => new SGuid(str),
+                _ => base.ConvertFrom(context, culture, value),
+            };
         }
 
         public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
@@ -318,3 +314,5 @@ namespace AI4E.Utils
         }
     }
 }
+
+#pragma warning restore CA1720, CA2225

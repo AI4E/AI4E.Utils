@@ -33,23 +33,13 @@ namespace System.Text
 {
     public static class EncodingExtension
     {
-        private static readonly GetByteCountShim _getByteCountShim;
-        private static readonly GetBytesShim _getBytesShim;
-        private static readonly GetCharCountShim _getCharCountShim;
-        private static readonly GetCharsShim _getCharsShim;
-        private static readonly GetStringShim _getStringShim;
+        private static readonly GetByteCountShim? _getByteCountShim = BuildGetByteCountShim(typeof(Encoding));
+        private static readonly GetBytesShim? _getBytesShim = BuildGetBytesShim(typeof(Encoding));
+        private static readonly GetCharCountShim? _getCharCountShim = BuildGetCharCountShim(typeof(Encoding));
+        private static readonly GetCharsShim? _getCharsShim = BuildGetCharsShim(typeof(Encoding));
+        private static readonly GetStringShim? _getStringShim = BuildGetStringShim(typeof(Encoding));
 
-        static EncodingExtension()
-        {
-            var encodingType = typeof(Encoding);
-            _getByteCountShim = BuildGetByteCountShim(encodingType);
-            _getBytesShim = BuildGetBytesShim(encodingType);
-            _getCharCountShim = BuildGetCharCountShim(encodingType);
-            _getCharsShim = BuildGetCharsShim(encodingType);
-            _getStringShim = BuildGetStringShim(encodingType);
-        }
-
-        private static GetByteCountShim BuildGetByteCountShim(Type encodingType)
+        private static GetByteCountShim? BuildGetByteCountShim(Type encodingType)
         {
             var getByteCountMethod = encodingType.GetMethod(nameof(Encoding.GetByteCount), new[] { typeof(ReadOnlySpan<char>) });
 
@@ -64,7 +54,7 @@ namespace System.Text
             return Expression.Lambda<GetByteCountShim>(methodCall, encodingParameter, charsParameter).Compile();
         }
 
-        private static GetBytesShim BuildGetBytesShim(Type encodingType)
+        private static GetBytesShim? BuildGetBytesShim(Type encodingType)
         {
             var getBytesMethod = encodingType.GetMethod(nameof(Encoding.GetBytes), new[] { typeof(ReadOnlySpan<char>), typeof(Span<byte>) });
 
@@ -80,7 +70,7 @@ namespace System.Text
             return Expression.Lambda<GetBytesShim>(methodCall, encodingParameter, charsParameter, bytesParameter).Compile();
         }
 
-        private static GetCharCountShim BuildGetCharCountShim(Type encodingType)
+        private static GetCharCountShim? BuildGetCharCountShim(Type encodingType)
         {
             var getCharCountMethod = encodingType.GetMethod(nameof(Encoding.GetCharCount), new[] { typeof(ReadOnlySpan<byte>) });
 
@@ -95,7 +85,7 @@ namespace System.Text
             return Expression.Lambda<GetCharCountShim>(methodCall, encodingParameter, bytesParameter).Compile();
         }
 
-        private static GetCharsShim BuildGetCharsShim(Type encodingType)
+        private static GetCharsShim? BuildGetCharsShim(Type encodingType)
         {
             var getCharsMethod = encodingType.GetMethod(nameof(Encoding.GetChars), new[] { typeof(ReadOnlySpan<byte>), typeof(Span<char>) });
 
@@ -111,7 +101,7 @@ namespace System.Text
             return Expression.Lambda<GetCharsShim>(methodCall, encodingParameter, bytesParameter, charsParameter).Compile();
         }
 
-        private static GetStringShim BuildGetStringShim(Type encodingType)
+        private static GetStringShim? BuildGetStringShim(Type encodingType)
         {
             var getStringMethod = encodingType.GetMethod(nameof(Encoding.GetString), new[] { typeof(ReadOnlySpan<byte>) });
 

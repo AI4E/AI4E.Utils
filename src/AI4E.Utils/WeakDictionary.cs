@@ -30,13 +30,17 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace AI4E.Utils
 {
+#pragma warning disable CA1710
     public sealed class WeakDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>
+#pragma warning restore CA1710
         where TValue : class
+        where TKey : notnull
     {
         private readonly ConcurrentDictionary<TKey, WeakReference<TValue>> _entries;
         private readonly ConcurrentQueue<TKey> _cleanupQueue = new ConcurrentQueue<TKey>();
@@ -55,17 +59,17 @@ namespace AI4E.Utils
             _entries = new ConcurrentDictionary<TKey, WeakReference<TValue>>(equalityComparer);
         }
 
-        public bool TryGetValue(TKey key, out TValue value)
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] [NotNullWhen(true)] out TValue value)
         {
             if (key == null)
                 throw new ArgumentNullException(nameof(key));
 
             Cleanup();
 
-            value = default;
+            value = default!;
 
             return _entries.TryGetValue(key, out var weakReference) &&
-                   weakReference.TryGetTarget(out value);
+                   weakReference.TryGetTarget(out value!);
         }
 
         public TValue GetOrAdd(TKey key, Func<TKey, TValue> factory)
@@ -92,15 +96,16 @@ namespace AI4E.Utils
             return GetOrAddInternal(key, _ => value);
         }
 
-        public bool TryRemove(TKey key, out TValue value)
+        public bool TryRemove(TKey key, [MaybeNullWhen(false)] [NotNullWhen(true)] out TValue value)
         {
             if (key == null)
                 throw new ArgumentNullException(nameof(key));
 
             Cleanup();
 
-            value = default;
-            return _entries.TryRemove(key, out var weakReference) && weakReference.TryGetTarget(out value);
+            value = default!;
+            return _entries.TryRemove(key, out var weakReference)
+                && weakReference.TryGetTarget(out value!);
         }
 
         public bool TryRemove(TKey key, TValue comparand)
@@ -113,11 +118,13 @@ namespace AI4E.Utils
 
             Cleanup();
 
-            WeakReference<TValue> weakReference;
+            WeakReference<TValue>? weakReference;
 
             do
             {
-                if (!_entries.TryGetValue(key, out weakReference) || !weakReference.TryGetTarget(out var value) || !value.Equals(comparand))
+                if (!_entries.TryGetValue(key, out weakReference)
+                    || !weakReference.TryGetTarget(out var value)
+                    || !value.Equals(comparand))
                 {
                     return false;
                 }
@@ -129,48 +136,50 @@ namespace AI4E.Utils
 
         private TValue GetOrAddInternal(TKey key, Func<TKey, TValue> factory)
         {
-            var newValue = default(TValue);
-            var newWeakReference = default(WeakReference<TValue>);
-            var cleanCallback = default(Action<TValue>);
+            TValue? newValue = null;
+            WeakReference<TValue>? newWeakReference = null;
+            Action<TValue>? cleanCallback = null;
+            var valueCreated = false;
 
-            do
+            while (true)
             {
                 if (_entries.TryGetValue(key, out var weakReference))
                 {
                     if (weakReference.TryGetTarget(out var value))
                     {
-                        if (newValue != null)
+                        if (valueCreated)
                         {
-                            _finalizer.RemoveHandler(newValue, cleanCallback);
+                            _finalizer.RemoveHandler(newValue!, cleanCallback!);
                         }
 
                         return value;
                     }
 
-                    if (newValue == null)
+                    if (!valueCreated)
                     {
                         (newValue, newWeakReference, cleanCallback) = CreateValue(key, factory);
+                        valueCreated = true;
                     }
 
-                    if (_entries.TryUpdate(key, newWeakReference, weakReference))
+                    if (_entries.TryUpdate(key, newWeakReference!, weakReference))
                     {
-                        return newValue;
+                        return newValue!;
                     }
                 }
                 else
                 {
-                    if (newValue == null)
+                    if (!valueCreated)
                     {
                         (newValue, newWeakReference, cleanCallback) = CreateValue(key, factory);
+                        valueCreated = true;
                     }
 
-                    if (_entries.TryAdd(key, newWeakReference))
+                    if (_entries.TryAdd(key, newWeakReference!))
                     {
-                        return newValue;
+                        return newValue!;
                     }
                 }
             }
-            while (true);
         }
 
         private (TValue newValue, WeakReference<TValue> newWeakReference, Action<TValue> cleanCallback) CreateValue(TKey key, Func<TKey, TValue> factory)
@@ -246,7 +255,7 @@ namespace AI4E.Utils
         private sealed class SingleFinalizer
         {
             private readonly T _value;
-            private volatile Action<T> _action;
+            private volatile Action<T>? _action;
 
             public SingleFinalizer(T value)
             {
@@ -258,9 +267,9 @@ namespace AI4E.Utils
 
             public void AddHandler(Action<T> action)
             {
-                Action<T> current = _action, // Volatile read op
-                          start,
-                          desired;
+                Action<T>? current = _action, // Volatile read op
+                           start,
+                           desired;
 
                 do
                 {
@@ -275,9 +284,9 @@ namespace AI4E.Utils
 
             public void RemoveHandler(Action<T> action)
             {
-                Action<T> current = _action, // Volatile read op
-                          start,
-                          desired;
+                Action<T>? current = _action, // Volatile read op
+                           start,
+                           desired;
 
                 do
                 {

@@ -26,7 +26,6 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-
 using System;
 
 namespace Microsoft.Extensions.ObjectPool
@@ -43,7 +42,9 @@ namespace Microsoft.Extensions.ObjectPool
         /// <param name="objectPool">The object pool.</param>
         /// <param name="obj">Contains the rented object.</param>
         /// <returns>A instance of type <see cref="PooledObjectReturner{T}"/> that can be used to return the rented object to the pool.</returns>
+#pragma warning disable CA1720
         public static PooledObjectReturner<T> Get<T>(this ObjectPool<T> objectPool, out T obj)
+#pragma warning restore CA1720
             where T : class
         {
             if (objectPool == null)
@@ -99,13 +100,13 @@ namespace Microsoft.Extensions.ObjectPool
     /// Represents a pooled object returner that returns the object to the pool when disposed.
     /// </summary>
     /// <typeparam name="T">The type of pooled object.</typeparam>
-    public struct PooledObjectReturner<T> : IDisposable
+    public readonly struct PooledObjectReturner<T> : IDisposable, IEquatable<PooledObjectReturner<T>>
         where T : class
     {
-        private readonly ObjectPool<T> _objectPool;
-        private readonly T _obj;
+        private readonly ObjectPool<T>? _objectPool;
+        private readonly T? _obj;
         private readonly int _token;
-        private readonly PooledObjectReturnerSource _source;
+        private readonly PooledObjectReturnerSource? _source;
 
         internal PooledObjectReturner(ObjectPool<T> objectPool, T obj)
         {
@@ -120,13 +121,42 @@ namespace Microsoft.Extensions.ObjectPool
         /// </summary>
         public void Dispose()
         {
-            if (_source == null || _source.IsDisposed(_token))
+            if (_objectPool == null
+                || _obj is null
+                || _source == null
+                || _source.IsDisposed(_token))
             {
                 return;
             }
 
             _objectPool.Return(_obj);
             _source.Dispose(_token);
+        }
+
+        public bool Equals(PooledObjectReturner<T> other)
+        {
+            return (_source, _token) == (other._source, other._token);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is PooledObjectReturner<T> pooledObjectReturner
+                && Equals(pooledObjectReturner);
+        }
+
+        public override int GetHashCode()
+        {
+            return (_source, _token).GetHashCode();
+        }
+
+        public static bool operator ==(PooledObjectReturner<T> left, PooledObjectReturner<T> right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(PooledObjectReturner<T> left, PooledObjectReturner<T> right)
+        {
+            return !left.Equals(right);
         }
     }
 }

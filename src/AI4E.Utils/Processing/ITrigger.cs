@@ -39,7 +39,8 @@ namespace AI4E.Utils.Processing
         /// <summary>
         /// Asynchronously awaits the next trigger.
         /// </summary>
-        /// <param name="cancellation">A <see cref="CancellationToken"/> used to cancel the asynchronous operation or <see cref="CancellationToken.None"/>.</param>
+        /// <param name="cancellation">A <see cref="CancellationToken"/> used to cancel the asynchronous operation
+        /// or <see cref="CancellationToken.None"/>.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         Task NextTriggerAsync(CancellationToken cancellation);
     }

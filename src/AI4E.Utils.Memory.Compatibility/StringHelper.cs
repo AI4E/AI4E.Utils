@@ -35,19 +35,9 @@ namespace AI4E.Utils.Memory.Compatibility
 {
     public static class StringHelper
     {
-        private static readonly CreateShim _createShim;
+        private static readonly CreateShim? _createShim = BuildCreateShim(typeof(string));
 
-        static StringHelper()
-        {
-            var stringType = typeof(string);
-
-            if (stringType != null)
-            {
-                _createShim = BuildCreateShim(stringType);
-            }
-        }
-
-        private static CreateShim BuildCreateShim(Type stringType)
+        private static CreateShim? BuildCreateShim(Type stringType)
         {
             var ctor = stringType.GetConstructor(BindingFlags.Instance | BindingFlags.Public,
                                                  Type.DefaultBinder,

@@ -35,19 +35,9 @@ namespace System
 {
     public static class RandomExtension
     {
-        private static readonly NextBytesShim _nextBytesShim;
+        private static readonly NextBytesShim? _nextBytesShim= BuildNextBytesShim(typeof(Random));
 
-        static RandomExtension()
-        {
-            var randomType = typeof(Random);
-
-            if (randomType != null)
-            {
-                _nextBytesShim = BuildNextBytesShim(randomType);
-            }
-        }
-
-        private static NextBytesShim BuildNextBytesShim(Type randomType)
+        private static NextBytesShim? BuildNextBytesShim(Type randomType)
         {
             var nextBytesMethod = randomType.GetMethod(nameof(Random.NextBytes),
                                                        BindingFlags.Instance | BindingFlags.Public,

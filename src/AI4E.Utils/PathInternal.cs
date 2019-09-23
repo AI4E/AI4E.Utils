@@ -37,6 +37,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 
 namespace AI4E.Utils
@@ -64,14 +65,26 @@ namespace AI4E.Utils
         {
             try
             {
-                var pathWithUpperCase = Path.Combine(Path.GetTempPath(), "CASESENSITIVETEST" + Guid.NewGuid().ToString("N"));
-                using (new FileStream(pathWithUpperCase, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 0x1000, FileOptions.DeleteOnClose))
-                {
-                    var lowerCased = pathWithUpperCase.ToLowerInvariant();
-                    return !File.Exists(lowerCased);
-                }
+                var pathWithUpperCase = Path.Combine(
+                    Path.GetTempPath(),
+                    "CASESENSITIVETEST" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
+                using var _ = new FileStream(
+                    pathWithUpperCase,
+                    FileMode.CreateNew,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    0x1000,
+                    FileOptions.DeleteOnClose);
+
+#pragma warning disable CA1308
+                var lowerCased = pathWithUpperCase.ToLowerInvariant();
+#pragma warning restore CA1308
+                return !File.Exists(lowerCased);
+
             }
+#pragma warning disable CA1031
             catch (Exception exc)
+#pragma warning restore CA1031
             {
                 // In case something goes terribly wrong, we don't want to fail just because
                 // of a casing test, so we assume case-insensitive-but-preserving.

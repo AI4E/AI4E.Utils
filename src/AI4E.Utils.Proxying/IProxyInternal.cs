@@ -26,6 +26,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#nullable disable
+
 using System;
 using System.Reflection;
 using System.Threading;
@@ -51,3 +53,5 @@ namespace AI4E.Utils.Proxying
         Task<object> ExecuteAsync(MethodInfo method, object[] args);
     }
 }
+
+#nullable enable

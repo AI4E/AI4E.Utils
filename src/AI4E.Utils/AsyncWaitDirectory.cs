@@ -28,21 +28,20 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Diagnostics.Debug;
-using static AI4E.Utils.DebugEx;
+using System.Diagnostics;
 
 namespace AI4E.Utils
 {
     public sealed class AsyncWaitDirectory<TKey>
+        where TKey : notnull
     {
-        private readonly Dictionary<TKey, (TaskCompletionSource<object> tcs, int refCount)> _entries;
+        private readonly Dictionary<TKey, (TaskCompletionSource<object?> tcs, int refCount)> _entries;
 
         public AsyncWaitDirectory()
         {
-            _entries = new Dictionary<TKey, (TaskCompletionSource<object> tcs, int refCount)>();
+            _entries = new Dictionary<TKey, (TaskCompletionSource<object?> tcs, int refCount)>();
         }
 
         public async Task WaitForNotificationAsync(TKey key, CancellationToken cancellation)
@@ -56,7 +55,7 @@ namespace AI4E.Utils
 
             using (cancellation.Register(() => FreeWaitEntry(key)))
             {
-                await waitEntry.WithCancellation(cancellation);
+                await waitEntry.WithCancellation(cancellation).ConfigureAwait(false);
             }
         }
 
@@ -65,7 +64,7 @@ namespace AI4E.Utils
             if (key == null)
                 throw new ArgumentNullException(nameof(key));
 
-            TaskCompletionSource<object> tcs;
+            TaskCompletionSource<object?> tcs;
 
             lock (_entries)
             {
@@ -83,7 +82,7 @@ namespace AI4E.Utils
 
         private Task AllocateWaitEntry(TKey key)
         {
-            TaskCompletionSource<object> tcs;
+            TaskCompletionSource<object?> tcs;
 
             lock (_entries)
             {
@@ -96,7 +95,7 @@ namespace AI4E.Utils
                 }
                 else
                 {
-                    tcs = new TaskCompletionSource<object>();
+                    tcs = new TaskCompletionSource<object?>();
                 }
 
                 _entries[key] = (tcs, refCount + 1);
@@ -114,7 +113,7 @@ namespace AI4E.Utils
                     return;
                 }
 
-                Assert(entry.refCount >= 1);
+                Debug.Assert(entry.refCount >= 1);
 
                 if (entry.refCount == 1)
                 {

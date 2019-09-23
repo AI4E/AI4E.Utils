@@ -33,16 +33,17 @@ using System.Threading.Tasks;
 
 namespace AI4E.Utils
 {
-    public readonly struct TaskCancellationTokenSource : IDisposable
+    public readonly struct TaskCancellationTokenSource : IDisposable, IEquatable<TaskCancellationTokenSource>
     {
-        private readonly CancellationTokenSource _cancellationTokenSource;
+        private readonly CancellationTokenSource? _cancellationTokenSource;
+        private readonly Task? _task;
 
         public TaskCancellationTokenSource(Task task)
         {
             if (task == null)
                 throw new ArgumentNullException(nameof(task));
 
-            Task = task;
+            _task = task;
 
             if (task.IsCompleted)
             {
@@ -51,7 +52,11 @@ namespace AI4E.Utils
             }
 
             _cancellationTokenSource = new CancellationTokenSource();
-            task.ContinueWith((_, cts) => ((CancellationTokenSource)cts).Cancel(), _cancellationTokenSource);
+
+            task.ContinueWith(
+                (_, cts) => ((CancellationTokenSource)cts!).Cancel(),
+                _cancellationTokenSource,
+                TaskScheduler.Default);
         }
 
         public TaskCancellationTokenSource(Task task, params CancellationToken[] linkedTokens)
@@ -62,7 +67,7 @@ namespace AI4E.Utils
             if (linkedTokens == null)
                 throw new ArgumentNullException(nameof(linkedTokens));
 
-            Task = task;
+            _task = task;
 
             if (task.IsCompleted || linkedTokens.Any(p => p.IsCancellationRequested))
             {
@@ -93,10 +98,13 @@ namespace AI4E.Utils
                 catch (ObjectDisposedException) { }
             }
 
-            task.ContinueWith(CancelSource, _cancellationTokenSource);
+            task.ContinueWith(
+                CancelSource!,
+                _cancellationTokenSource,
+                TaskScheduler.Default);
         }
 
-        public Task Task { get; }
+        public Task Task => _task ?? Task.CompletedTask;
         public CancellationToken CancellationToken
         {
             get
@@ -132,5 +140,33 @@ namespace AI4E.Utils
         {
             _cancellationTokenSource?.Dispose();
         }
+
+        public bool Equals(TaskCancellationTokenSource other)
+        {
+            return other._task == _task;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is TaskCancellationTokenSource taskCancellationTokenSource
+                && Equals(taskCancellationTokenSource);
+        }
+
+        public override int GetHashCode()
+        {
+            return _task?.GetHashCode() ?? 0;
+        }
+
+        public static bool operator ==(TaskCancellationTokenSource left, TaskCancellationTokenSource right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(TaskCancellationTokenSource left, TaskCancellationTokenSource right)
+        {
+            return !left.Equals(right);
+        }
+
+
     }
 }

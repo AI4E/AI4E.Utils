@@ -32,16 +32,18 @@ using System.Threading.Tasks;
 
 namespace AI4E.Utils.Processing
 {
+#pragma warning disable CA1001
     public sealed class AsyncProcess : IAsyncProcess
+#pragma warning restore CA1001
     {
         private readonly Func<CancellationToken, Task> _operation;
         private readonly object _lock = new object();
 
         private Task _execution = Task.CompletedTask;
-        private CancellationTokenSource _cancellationSource;
+        private CancellationTokenSource? _cancellationSource;
 
-        private TaskCompletionSource<object> _startNotificationSource;
-        private TaskCompletionSource<object> _terminationNotificationSource;
+        private TaskCompletionSource<object?>? _startNotificationSource;
+        private TaskCompletionSource<object?>? _terminationNotificationSource;
 
         public AsyncProcess(Func<CancellationToken, Task> operation, bool start = false)
         {
@@ -73,54 +75,68 @@ namespace AI4E.Utils.Processing
             }
         }
 
-        public void Start()
+        private TaskCompletionSource<object?> StartCore()
         {
             lock (_lock)
             {
-                if (_execution.IsRunning())
-                    return;
+                if (!_execution.IsRunning())
+                {
+                    _startNotificationSource = new TaskCompletionSource<object?>();
+                    _terminationNotificationSource = new TaskCompletionSource<object?>();
+                    _cancellationSource = new CancellationTokenSource();
+                    _execution = Execute();
+                }
 
-                _startNotificationSource = new TaskCompletionSource<object>();
-                _terminationNotificationSource = new TaskCompletionSource<object>();
-                _cancellationSource = new CancellationTokenSource();
-                _execution = Execute();
+                return _startNotificationSource!;
             }
         }
 
-        public Task StartAsync(CancellationToken cancellation)
+        public void Start()
         {
-            Start();
+            StartCore();
+        }
 
-            var result = _startNotificationSource.Task;
+        public Task StartAsync(CancellationToken cancellation = default)
+        {
+            var startNotificationSource = StartCore().Task;
 
             if (cancellation.CanBeCanceled)
             {
-                result = result.WithCancellation(cancellation);
+                startNotificationSource = startNotificationSource.WithCancellation(cancellation);
             }
 
-            return result;
+            return startNotificationSource;
         }
 
-        public void Terminate()
+        private async Task TerminateCoreAsync()
         {
+            TaskCompletionSource<object?>? terminationNotificationSource;
+            CancellationTokenSource cancellationSource;
             lock (_lock)
             {
                 if (!_execution.IsRunning())
                     return;
 
-                _cancellationSource.Cancel();
+                cancellationSource = _cancellationSource!;
+                cancellationSource.Cancel();
+                terminationNotificationSource = _terminationNotificationSource;
+            }
+
+            if (terminationNotificationSource != null)
+            {
+                await terminationNotificationSource.Task.ConfigureAwait(false);
+                cancellationSource.Dispose();
             }
         }
 
-        public Task TerminateAsync()
+        public void Terminate()
         {
-            Terminate();
-            return _terminationNotificationSource?.Task ?? Task.CompletedTask;
+            _ = TerminateCoreAsync();
         }
 
-        public Task TerminateAsync(CancellationToken cancellation)
+        public Task TerminateAsync(CancellationToken cancellation = default)
         {
-            var result = TerminateAsync();
+            var result = TerminateCoreAsync();
 
             if (cancellation.CanBeCanceled)
             {
@@ -134,13 +150,13 @@ namespace AI4E.Utils.Processing
         {
             try
             {
-                var cancellation = _cancellationSource.Token;
+                var cancellation = _cancellationSource!.Token;
 
                 await Task.Yield();
 
                 try
                 {
-                    _startNotificationSource.SetResult(null);
+                    _startNotificationSource!.SetResult(null);
 
                     await _operation(cancellation).ConfigureAwait(false);
 
@@ -150,14 +166,16 @@ namespace AI4E.Utils.Processing
                     }
                 }
                 catch (OperationCanceledException) when (_cancellationSource.IsCancellationRequested) { }
+#pragma warning disable CA1031
                 catch (Exception exc)
+#pragma warning restore CA1031
                 {
-                    _terminationNotificationSource.SetException(exc);
+                    _terminationNotificationSource!.SetException(exc);
                 }
             }
             finally
             {
-                _terminationNotificationSource.TrySetResult(null);
+                _terminationNotificationSource!.TrySetResult(null);
             }
         }
     }

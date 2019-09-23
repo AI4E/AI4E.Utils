@@ -35,16 +35,14 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.IO;
-using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
+using AI4E.Utils;
 
-namespace AI4E.Utils
+namespace System.IO.Compression
 {
     // TODO: Fix XML-comments
-    public static class ZipArchiveEntryExtension
+    public static class AI4EUtilsZipArchiveEntryExtension
     {
         /// <summary>
         /// Creates a file on the file system with the entry?s contents and the specified name. The last write time of the file is set to the
@@ -72,7 +70,10 @@ namespace AI4E.Utils
         /// <param name="destinationFileName">The name of the file that will hold the contents of the entry.
         /// The path is permitted to specify relative or absolute path information.
         /// Relative path information is interpreted as relative to the current working directory.</param>
-        public static Task ExtractToFileAsync(this ZipArchiveEntry source, string destinationFileName, CancellationToken cancellation)
+        public static Task ExtractToFileAsync(
+            this ZipArchiveEntry source,
+            string destinationFileName,
+            CancellationToken cancellation)
         {
             return ExtractToFileAsync(source, destinationFileName, false, cancellation);
         }
@@ -104,39 +105,45 @@ namespace AI4E.Utils
         /// The path is permitted to specify relative or absolute path information.
         /// Relative path information is interpreted as relative to the current working directory.</param>
         /// <param name="overwrite">True to indicate overwrite.</param>
-        public static async Task ExtractToFileAsync(this ZipArchiveEntry source, string destinationFileName, bool overwrite, CancellationToken cancellation)
+        public static async Task ExtractToFileAsync(
+            this ZipArchiveEntry source,
+            string destinationFileName,
+            bool overwrite,
+            CancellationToken cancellation)
         {
-            if (source == null)
-                throw new ArgumentNullException(nameof(source));
-
             if (destinationFileName == null)
                 throw new ArgumentNullException(nameof(destinationFileName));
 
             // Rely on FileStream's ctor for further checking destinationFileName parameter
             var fileMode = overwrite ? FileMode.Create : FileMode.CreateNew;
 
-            using (var fileStream = new FileStream(destinationFileName, fileMode, FileAccess.Write, FileShare.None, bufferSize: 0x1000, useAsync: true))
+            using (var fileStream = new FileStream(
+                destinationFileName, fileMode, FileAccess.Write, FileShare.None, bufferSize: 0x1000, useAsync: true))
             {
-                using (var zipStream = source.Open())
-                {
-                    await zipStream.CopyToAsync(fileStream, bufferSize: 81920, cancellation);
-                }
+#pragma warning disable CA1062
+                using var zipStream = source.Open();
+#pragma warning restore CA1062
+                await zipStream.CopyToAsync(fileStream, bufferSize: 81920, cancellation).ConfigureAwait(false);
 
             }
 
             File.SetLastWriteTime(destinationFileName, source.LastWriteTime.DateTime);
         }
 
-        internal static Task ExtractRelativeToDirectoryAsync(this ZipArchiveEntry source, string destinationDirectoryName, CancellationToken cancellation)
+        internal static Task ExtractRelativeToDirectoryAsync(
+            this ZipArchiveEntry source,
+            string destinationDirectoryName,
+            CancellationToken cancellation)
         {
             return ExtractRelativeToDirectoryAsync(source, destinationDirectoryName, overwrite: false, cancellation);
         }
 
-        internal static Task ExtractRelativeToDirectoryAsync(this ZipArchiveEntry source, string destinationDirectoryName, bool overwrite, CancellationToken cancellation)
+        internal static Task ExtractRelativeToDirectoryAsync(
+            this ZipArchiveEntry source,
+            string destinationDirectoryName,
+            bool overwrite,
+            CancellationToken cancellation)
         {
-            if (source == null)
-                throw new ArgumentNullException(nameof(source));
-
             if (destinationDirectoryName == null)
                 throw new ArgumentNullException(nameof(destinationDirectoryName));
 
@@ -146,7 +153,8 @@ namespace AI4E.Utils
             var fileDestinationPath = Path.GetFullPath(Path.Combine(destinationDirectoryFullPath, source.FullName));
 
             if (!fileDestinationPath.StartsWith(destinationDirectoryFullPath, PathInternal.StringComparison))
-                throw new IOException("Extracting Zip entry would have resulted in a file outside the specified destination directory.");
+                throw new IOException(
+                    "Extracting Zip entry would have resulted in a file outside the specified destination directory.");
 
             if (Path.GetFileName(fileDestinationPath).Length != 0)
             {

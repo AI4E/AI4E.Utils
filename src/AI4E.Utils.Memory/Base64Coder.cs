@@ -174,7 +174,8 @@ namespace AI4E.Utils.Memory
             return result.Span;
         }
 
-        public static string ToBase64String(ReadOnlySpan<byte> bytes, Base64FormattingOptions options = Base64FormattingOptions.None)
+        public static string ToBase64String(
+            ReadOnlySpan<byte> bytes, Base64FormattingOptions options = Base64FormattingOptions.None)
         {
             if (bytes.IsEmpty)
             {
@@ -198,7 +199,8 @@ namespace AI4E.Utils.Memory
             return result;
         }
 
-        private static int ConvertToBase64Array(Span<char> chars, ReadOnlySpan<byte> bytes, int offset, int length, Base64FormattingOptions options)
+        private static int ConvertToBase64Array(
+            Span<char> chars, ReadOnlySpan<byte> bytes, int offset, int length, Base64FormattingOptions options)
         {
             var insertLineBreaks = (options & Base64FormattingOptions.InsertLineBreaks) != 0;
             var lengthmod3 = length % 3;
@@ -223,14 +225,14 @@ namespace AI4E.Utils.Memory
                 chars[j] = _base64Table[(bytes[i] & 0xfc) >> 2];
                 chars[j + 1] = _base64Table[((bytes[i] & 0x03) << 4) | ((bytes[i + 1] & 0xf0) >> 4)];
                 chars[j + 2] = _base64Table[((bytes[i + 1] & 0x0f) << 2) | ((bytes[i + 2] & 0xc0) >> 6)];
-                chars[j + 3] = _base64Table[(bytes[i + 2] & 0x3f)];
+                chars[j + 3] = _base64Table[bytes[i + 2] & 0x3f];
                 j += 4;
             }
 
             //Where we left off before
             i = calcLength;
 
-            if (insertLineBreaks && (lengthmod3 != 0) && (charcount == _base64LineBreakPosition))
+            if (insertLineBreaks && lengthmod3 != 0 && charcount == _base64LineBreakPosition)
             {
                 chars[j++] = '\r';
                 chars[j++] = '\n';
@@ -257,7 +259,8 @@ namespace AI4E.Utils.Memory
             return j;
         }
 
-        public static int ComputeBase64EncodedLength(ReadOnlySpan<byte> bytes, Base64FormattingOptions options = Base64FormattingOptions.None)
+        public static int ComputeBase64EncodedLength(
+            ReadOnlySpan<byte> bytes, Base64FormattingOptions options = Base64FormattingOptions.None)
         {
             return ToBase64_CalculateAndValidateOutputLength(bytes.Length, options);
         }
@@ -265,8 +268,8 @@ namespace AI4E.Utils.Memory
         private static int ToBase64_CalculateAndValidateOutputLength(int inputLength, Base64FormattingOptions options)
         {
             var insertLineBreaks = (options & Base64FormattingOptions.InsertLineBreaks) != 0;
-            var outlen = ((long)inputLength) / 3 * 4;          // the base length - we want integer division here. 
-            outlen += ((inputLength % 3) != 0) ? 4 : 0;         // at most 4 more chars for the remainder
+            var outlen = (long)inputLength / 3 * 4;          // the base length - we want integer division here. 
+            outlen += (inputLength % 3 != 0) ? 4 : 0;         // at most 4 more chars for the remainder
 
             if (outlen == 0)
                 return 0;
@@ -274,7 +277,7 @@ namespace AI4E.Utils.Memory
             if (insertLineBreaks)
             {
                 var newLines = outlen / _base64LineBreakPosition;
-                if ((outlen % _base64LineBreakPosition) == 0)
+                if (outlen % _base64LineBreakPosition == 0)
                 {
                     --newLines;
                 }
@@ -299,16 +302,19 @@ namespace AI4E.Utils.Memory
             return System.Convert.TryFromBase64Chars(chars, bytes, out bytesWritten);
 #endif
 
-            // This is actually local to one of the nested blocks but is being declared at the top as we don't want multiple stackallocs
-            // for each iteraton of the loop. 
-            Span<char> tempBuffer = stackalloc char[4];  // Note: The tempBuffer size could be made larger than 4 but the size must be a multiple of 4.
+            // This is actually local to one of the nested blocks
+            // but is being declared at the top as we don't want multiple stackallocs
+            // for each iteraton of the loop.
+            // Note: The tempBuffer size could be made larger than 4 but the size must be a multiple of 4.
+            Span<char> tempBuffer = stackalloc char[4];
 
             bytesWritten = 0;
 
             while (chars.Length != 0)
             {
                 // Attempt to decode a segment that doesn't contain whitespace.
-                var complete = TryDecodeFromUtf16(chars, bytes, out var consumedInThisIteration, out var bytesWrittenInThisIteration);
+                var complete = TryDecodeFromUtf16(
+                    chars, bytes, out var consumedInThisIteration, out var bytesWrittenInThisIteration);
                 bytesWritten += bytesWrittenInThisIteration;
                 if (complete)
                     return true;
@@ -316,10 +322,12 @@ namespace AI4E.Utils.Memory
                 chars = chars.Slice(consumedInThisIteration);
                 bytes = bytes.Slice(bytesWrittenInThisIteration);
 
-                Debug.Assert(chars.Length != 0); // If TryDecodeFromUtf16() consumed the entire buffer, it could not have returned false.
+                // If TryDecodeFromUtf16() consumed the entire buffer, it could not have returned false.
+                Debug.Assert(chars.Length != 0);
                 if (chars[0].IsSpace())
                 {
-                    // If we got here, the very first character not consumed was a whitespace. We can skip past any consecutive whitespace, then continue decoding.
+                    // If we got here, the very first character not consumed was a whitespace.
+                    // We can skip past any consecutive whitespace, then continue decoding.
 
                     var indexOfFirstNonSpace = 1;
                     for (; ; )
@@ -335,10 +343,10 @@ namespace AI4E.Utils.Memory
 
                     chars = chars.Slice(indexOfFirstNonSpace);
 
-                    if ((bytesWrittenInThisIteration % 3) != 0 && chars.Length != 0)
+                    if (bytesWrittenInThisIteration % 3 != 0 && chars.Length != 0)
                     {
-                        // If we got here, the last successfully decoded block encountered an end-marker, yet we have trailing non-whitespace characters.
-                        // That is not allowed.
+                        // If we got here, the last successfully decoded block encountered an end-marker,
+                        // yet we have trailing non-whitespace characters. That is not allowed.
                         bytesWritten = default;
                         return false;
                     }
@@ -349,20 +357,25 @@ namespace AI4E.Utils.Memory
                 {
                     Debug.Assert(chars.Length != 0 && !chars[0].IsSpace());
 
-                    // If we got here, it is possible that there is whitespace that occurred in the middle of a 4-byte chunk. That is, we still have
-                    // up to three Base64 characters that were left undecoded by the fast-path helper because they didn't form a complete 4-byte chunk.
-                    // This is hopefully the rare case (multiline-formatted base64 message with a non-space character width that's not a multiple of 4.)
-                    // We'll filter out whitespace and copy the remaining characters into a temporary buffer.
-                    CopyToTempBufferWithoutWhiteSpace(chars, tempBuffer, out var consumedFromChars, out var charsWritten);
+                    // If we got here, it is possible that there is whitespace that occurred in the middle of a
+                    // 4-byte chunk. That is, we still have up to three Base64 characters that were left undecoded
+                    // by the fast-path helper because they didn't form a complete 4-byte chunk. This is hopefully the
+                    // rare case (multiline-formatted base64 message with a non-space character width that's not a
+                    // multiple of 4.) We'll filter out whitespace and copy the remaining characters into a temporary
+                    // buffer.
+                    CopyToTempBufferWithoutWhiteSpace(
+                        chars, tempBuffer, out var consumedFromChars, out var charsWritten);
                     if ((charsWritten & 0x3) != 0)
                     {
-                        // Even after stripping out whitespace, the number of characters is not divisible by 4. This cannot be a legal Base64 string.
+                        // Even after stripping out whitespace, the number of characters is not divisible by 4.
+                        // This cannot be a legal Base64 string.
                         bytesWritten = default;
                         return false;
                     }
 
                     tempBuffer = tempBuffer.Slice(0, charsWritten);
-                    if (!TryDecodeFromUtf16(tempBuffer, bytes, out var consumedFromTempBuffer, out var bytesWrittenFromTempBuffer))
+                    if (!TryDecodeFromUtf16(
+                        tempBuffer, bytes, out var consumedFromTempBuffer, out var bytesWrittenFromTempBuffer))
                     {
                         bytesWritten = default;
                         return false;
@@ -371,10 +384,10 @@ namespace AI4E.Utils.Memory
                     chars = chars.Slice(consumedFromChars);
                     bytes = bytes.Slice(bytesWrittenFromTempBuffer);
 
-                    if ((bytesWrittenFromTempBuffer % 3) != 0)
+                    if (bytesWrittenFromTempBuffer % 3 != 0)
                     {
-                        // If we got here, this decode contained one or more padding characters ('='). We can accept trailing whitespace after this
-                        // but nothing else.
+                        // If we got here, this decode contained one or more padding characters ('=').
+                        // We can accept trailing whitespace after this but nothing else.
                         for (var i = 0; i < chars.Length; i++)
                         {
                             if (!chars[i].IsSpace())
@@ -431,7 +444,7 @@ namespace AI4E.Utils.Memory
         public static int ComputeBase64DecodedLength(ReadOnlySpan<char> chars)
         {
             const int padding = 2;
-            return (chars.Length / 4) * 3 + padding;
+            return chars.Length / 4 * 3 + padding;
         }
 
         /// <summary>
@@ -544,12 +557,13 @@ namespace AI4E.Utils.Memory
             }
 
             // Done:
-            return (usefulInputLength / 4) * 3 + padding;
+            return usefulInputLength / 4 * 3 + padding;
         }
 
         #endregion
 
-        private static void CopyToTempBufferWithoutWhiteSpace(ReadOnlySpan<char> chars, Span<char> tempBuffer, out int consumed, out int charsWritten)
+        private static void CopyToTempBufferWithoutWhiteSpace(
+            ReadOnlySpan<char> chars, Span<char> tempBuffer, out int consumed, out int charsWritten)
         {
             Debug.Assert(tempBuffer.Length != 0); // We only bound-check after writing a character to the tempBuffer.
 
@@ -586,25 +600,39 @@ namespace AI4E.Utils.Memory
 
         /// <summary>
         /// Decode the span of UTF-16 encoded text represented as base 64 into binary data.
-        /// If the input is not a multiple of 4, or contains illegal characters, it will decode as much as it can, to the largest possible multiple of 4.
+        /// If the input is not a multiple of 4, or contains illegal characters, it will decode as much as it can,
+        /// to the largest possible multiple of 4.
         /// This invariant allows continuation of the parse with a slower, whitespace-tolerant algorithm.
         ///
-        /// <param name="utf16">The input span which contains UTF-16 encoded text in base 64 that needs to be decoded.</param>
-        /// <param name="bytes">The output span which contains the result of the operation, i.e. the decoded binary data.</param>
-        /// <param name="consumed">The number of input bytes consumed during the operation. This can be used to slice the input for subsequent calls, if necessary.</param>
-        /// <param name="written">The number of bytes written into the output span. This can be used to slice the output for subsequent calls, if necessary.</param>
+        /// <param name="utf16">
+        /// The input span which contains UTF-16 encoded text in base 64 that needs to be decoded.
+        /// </param>
+        /// <param name="bytes">
+        /// The output span which contains the result of the operation, i.e. the decoded binary data.
+        /// </param>
+        /// <param name="consumed">
+        /// The number of input bytes consumed during the operation. This can be used to slice the input for subsequent
+        /// calls, if necessary.
+        /// </param>
+        /// <param name="written">
+        /// The number of bytes written into the output span. This can be used to slice the output for subsequent calls,
+        /// if necessary.
+        /// </param>
         /// <returns>Returns:
         /// - true  - The entire input span was successfully parsed.
-        /// - false - Only a part of the input span was successfully parsed. Failure causes may include embedded or trailing whitespace, 
-        ///           other illegal Base64 characters, trailing characters after an encoding pad ('='), an input span whose length is not divisible by 4
-        ///           or a destination span that's too small. <paramref name="consumed"/> and <paramref name="written"/> are set so that 
-        ///           parsing can continue with a slower whitespace-tolerant algorithm.
+        /// - false - Only a part of the input span was successfully parsed. Failure causes may include embedded
+        ///           or trailing whitespace, other illegal Base64 characters, trailing characters after an encoding
+        ///           pad ('='), an input span whose length is not divisible by 4 or a destination span that's too
+        ///           small. <paramref name="consumed"/> and <paramref name="written"/> are set so that  parsing can
+        ///           continue with a slower whitespace-tolerant algorithm.
         ///           
-        /// Note: This is a cut down version of the implementation of Base64.DecodeFromUtf8(), modified the accept UTF16 chars and act as a fast-path
+        /// Note: This is a cut down version of the implementation of Base64.DecodeFromUtf8(),
+        /// modified the accept UTF16 chars and act as a fast-path
         /// helper for the Convert routines when the input string contains no whitespace.
         ///           
         /// </summary> 
-        private static bool TryDecodeFromUtf16(ReadOnlySpan<char> utf16, Span<byte> bytes, out int consumed, out int written)
+        private static bool TryDecodeFromUtf16(
+            ReadOnlySpan<char> utf16, Span<byte> bytes, out int consumed, out int written)
         {
             ref char srcChars = ref MemoryMarshal.GetReference(utf16);
             ref byte destBytes = ref MemoryMarshal.GetReference(bytes);
@@ -632,7 +660,7 @@ namespace AI4E.Utils.Memory
             {
                 // This should never overflow since destLength here is less than int.MaxValue / 4 * 3 (i.e. 1610612733)
                 // Therefore, (destLength / 3) * 4 will always be less than 2147483641
-                maxSrcLength = (destLength / 3) * 4;
+                maxSrcLength = destLength / 3 * 4;
             }
 
             while (sourceIndex < maxSrcLength)
@@ -718,15 +746,15 @@ namespace AI4E.Utils.Memory
             if (srcLength != utf16.Length)
                 goto InvalidExit;
 
-            DoneExit:
+DoneExit:
             consumed = sourceIndex;
             written = destIndex;
             return true;
 
-        InvalidExit:
+InvalidExit:
             consumed = sourceIndex;
             written = destIndex;
-            Debug.Assert((consumed % 4) == 0);
+            Debug.Assert(consumed % 4 == 0);
             return false;
         }
 

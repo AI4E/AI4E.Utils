@@ -27,8 +27,8 @@
  */
 
 using System;
+using System.Diagnostics;
 using System.IO;
-using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils
 {
@@ -59,7 +59,7 @@ namespace AI4E.Utils
                 if (value < 0 || value > _memory.Length - 1)
                     throw new ArgumentOutOfRangeException(nameof(value));
 
-                Assert(value <= int.MaxValue);
+                Debug.Assert(value <= int.MaxValue);
 
                 _position = unchecked((int)value);
             }
@@ -81,11 +81,11 @@ namespace AI4E.Utils
             return Read(buffer.AsSpan(offset, count));
         }
 
-        public
-#if NETCORE
-            override
+#if SUPPORTS_SPAN_APIS
+        public override int Read(Span<byte> buffer)
+#else
+        public int Read(Span<byte> buffer)
 #endif
-            int Read(Span<byte> buffer)
         {
             if (buffer.IsEmpty)
             {
@@ -104,7 +104,7 @@ namespace AI4E.Utils
 
             _position += readableBytes;
 
-            Assert(_position <= _memory.Length);
+            Debug.Assert(_position <= _memory.Length);
 
             return readableBytes;
         }
@@ -140,7 +140,7 @@ namespace AI4E.Utils
             if (position > _memory.Length - 1)
                 position = _memory.Length - 1;
 
-            Assert(position <= int.MaxValue);
+            Debug.Assert(position <= int.MaxValue);
 
             return _position = unchecked((int)position);
         }

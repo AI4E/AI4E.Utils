@@ -62,10 +62,7 @@ namespace AI4E.Utils.ApplicationParts
         /// <summary>
         /// Creates a new instance of the <see cref="ApplicationPartManager"/> type.
         /// </summary>
-        public ApplicationPartManager()
-        {
-            _applicationParts.CollectionChanged += (s, e) => OnApplicationPartsChanged();
-        }
+        public ApplicationPartManager() { }
 
         /// <summary>
         /// Gets the list of <see cref="IApplicationFeatureProvider"/>s.
@@ -83,14 +80,6 @@ namespace AI4E.Utils.ApplicationParts
         /// </para>
         /// </summary>
         public IList<ApplicationPart> ApplicationParts => _applicationParts;
-
-        [Obsolete]
-        public event EventHandler ApplicationPartsChanged;
-
-        private void OnApplicationPartsChanged()
-        {
-            ApplicationPartsChanged?.Invoke(this, EventArgs.Empty);
-        }
 
         /// <summary>
         /// Populates the given <paramref name="feature"/> using the list of

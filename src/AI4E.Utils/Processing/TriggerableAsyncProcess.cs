@@ -123,9 +123,9 @@ namespace AI4E.Utils.Processing
         {
             while (cancellation.ThrowOrContinue())
             {
-                await _scheduler.NextTrigger();
+                await _scheduler.NextTrigger().ConfigureAwait(false);
 
-                await StaticExecute(cancellation);
+                await StaticExecute(cancellation).ConfigureAwait(false);
             }
         }
 
@@ -136,7 +136,7 @@ namespace AI4E.Utils.Processing
 
             try
             {
-                await _operation(cancellation);
+                await _operation(cancellation).ConfigureAwait(false);
             }
             finally
             {

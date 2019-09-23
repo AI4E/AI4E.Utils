@@ -26,6 +26,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#nullable disable
+
 using System;
 using System.Diagnostics;
 using System.Linq.Expressions;
@@ -141,6 +143,7 @@ namespace AI4E.Utils.Proxying
         public void Dispose()
         {
             _disposeHelper.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public ValueTask DisposeAsync()
@@ -154,7 +157,7 @@ namespace AI4E.Utils.Proxying
             {
                 Debug.Assert(_host != null);
 
-                await _host.Deactivate(Id, cancellation: default);
+                await _host.Deactivate(Id, cancellation: default).ConfigureAwait(false);
             }
             else
             {
@@ -178,7 +181,8 @@ namespace AI4E.Utils.Proxying
         {
             try
             {
-                _disposeHelper.Dispose();
+                // TODO: Why is _disposeHelper null sometimes?
+                _disposeHelper?.Dispose();
             }
             catch (ObjectDisposedException) { }
         }
@@ -189,18 +193,16 @@ namespace AI4E.Utils.Proxying
         {
             try
             {
-                using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                using var guard = _disposeHelper.GuardDisposal(cancellation: default);
+                if (IsRemoteProxy)
                 {
-                    if (IsRemoteProxy)
-                    {
-                        await _host.SendMethodCallAsync<object>(expression.Body, this, false);
-                    }
-                    else
-                    {
-                        var compiled = expression.Compile();
+                    await _host.SendMethodCallAsync<object>(expression.Body, this, false).ConfigureAwait(false);
+                }
+                else
+                {
+                    var compiled = expression.Compile();
 
-                        compiled.Invoke(LocalInstance);
-                    }
+                    compiled.Invoke(LocalInstance);
                 }
             }
             catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
@@ -213,18 +215,16 @@ namespace AI4E.Utils.Proxying
         {
             try
             {
-                using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                using var guard = _disposeHelper.GuardDisposal(cancellation: default);
+                if (IsRemoteProxy)
                 {
-                    if (IsRemoteProxy)
-                    {
-                        await _host.SendMethodCallAsync<object>(expression.Body, this, true);
-                        return;
-                    }
-
-                    var compiled = expression.Compile();
-
-                    await compiled.Invoke(LocalInstance);
+                    await _host.SendMethodCallAsync<object>(expression.Body, this, true).ConfigureAwait(false);
+                    return;
                 }
+
+                var compiled = expression.Compile();
+
+                await compiled.Invoke(LocalInstance).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
             {
@@ -236,16 +236,14 @@ namespace AI4E.Utils.Proxying
         {
             try
             {
-                using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                using var guard = _disposeHelper.GuardDisposal(cancellation: default);
+                if (IsRemoteProxy)
                 {
-                    if (IsRemoteProxy)
-                    {
-                        return await _host.SendMethodCallAsync<TResult>(expression.Body, this, false);
-                    }
-
-                    var compiled = expression.Compile();
-                    return compiled.Invoke(LocalInstance);
+                    return await _host.SendMethodCallAsync<TResult>(expression.Body, this, false).ConfigureAwait(false);
                 }
+
+                var compiled = expression.Compile();
+                return compiled.Invoke(LocalInstance);
             }
             catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
             {
@@ -257,17 +255,15 @@ namespace AI4E.Utils.Proxying
         {
             try
             {
-                using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
+                using var guard = _disposeHelper.GuardDisposal(cancellation: default);
+                if (IsRemoteProxy)
                 {
-                    if (IsRemoteProxy)
-                    {
-                        return await _host.SendMethodCallAsync<TResult>(expression.Body, this, true);
-                    }
-
-                    var compiled = expression.Compile();
-
-                    return await compiled.Invoke(LocalInstance);
+                    return await _host.SendMethodCallAsync<TResult>(expression.Body, this, true).ConfigureAwait(false);
                 }
+
+                var compiled = expression.Compile();
+
+                return await compiled.Invoke(LocalInstance).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
             {
@@ -281,10 +277,10 @@ namespace AI4E.Utils.Proxying
 
             try
             {
-                using (var guard = _disposeHelper.GuardDisposal(cancellation: default))
-                {
-                    return await _host.SendMethodCallAsync<object>(method, args, this, typeof(Task).IsAssignableFrom(method.ReturnType));
-                }
+                using var guard = _disposeHelper.GuardDisposal(cancellation: default);
+                return await _host.SendMethodCallAsync<object>(
+                    method, args, this, typeof(Task).IsAssignableFrom(method.ReturnType))
+                    .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (_disposeHelper.IsDisposed)
             {
@@ -339,3 +335,5 @@ namespace AI4E.Utils.Proxying
         }
     }
 }
+
+#nullable enable

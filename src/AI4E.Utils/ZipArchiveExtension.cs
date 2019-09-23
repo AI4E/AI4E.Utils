@@ -35,16 +35,13 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.IO;
-using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AI4E.Utils
+namespace System.IO.Compression
 {
     // TODO: Fix XML-comments
-    public static class ZipArchiveExtension
+    public static class AI4EUtilsZipArchiveExtension
     {
         /// <summary>
         /// Extracts all of the files in the archive to a directory on the file system. The specified directory may already exist.
@@ -106,17 +103,22 @@ namespace AI4E.Utils
         /// The directory specified must not exist. The path is permitted to specify relative or absolute path information.
         /// Relative path information is interpreted as relative to the current working directory.</param>
         /// <param name="overwrite">True to indicate overwrite.</param>
-        public static async Task ExtractToDirectoryAsync(this ZipArchive source, string destinationDirectoryName, bool overwrite, CancellationToken cancellation)
+        public static async Task ExtractToDirectoryAsync(
+            this ZipArchive source,
+            string destinationDirectoryName,
+            bool overwrite,
+            CancellationToken cancellation)
         {
-            if (source == null)
-                throw new ArgumentNullException(nameof(source));
-
             if (destinationDirectoryName == null)
                 throw new ArgumentNullException(nameof(destinationDirectoryName));
 
+#pragma warning disable CA1062
             foreach (var entry in source.Entries)
+#pragma warning restore CA1062
             {
-                await entry.ExtractRelativeToDirectoryAsync(destinationDirectoryName, overwrite, cancellation);
+                await entry
+                    .ExtractRelativeToDirectoryAsync(destinationDirectoryName, overwrite, cancellation)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -127,16 +129,19 @@ namespace AI4E.Utils
             string filePath,
             CancellationToken cancellation)
         {
-            if (archive == null)
-                throw new ArgumentNullException(nameof(archive));
-
+#pragma warning disable CA1062
             var entry = archive.CreateEntry(entryName, compressionLevel);
+#pragma warning restore CA1062
 
-            using (var entryStream = entry.Open())
-            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None, bufferSize: 4096, useAsync: true))
-            {
-                await fileStream.CopyToAsync(entryStream, bufferSize: 4096, cancellation);
-            }
+            using var entryStream = entry.Open();
+            using var fileStream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.None,
+                bufferSize: 4096,
+                useAsync: true);
+            await fileStream.CopyToAsync(entryStream, bufferSize: 4096, cancellation).ConfigureAwait(false);
         }
 
         public static async Task AddFileAsEntryAsync(
@@ -145,16 +150,18 @@ namespace AI4E.Utils
             string filePath,
             CancellationToken cancellation)
         {
-            if (archive == null)
-                throw new ArgumentNullException(nameof(archive));
-
+#pragma warning disable CA1062
             var entry = archive.CreateEntry(entryName);
+#pragma warning restore CA1062
 
-            using (var entryStream = entry.Open())
-            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None, bufferSize: 4096, useAsync: true))
-            {
-                await fileStream.CopyToAsync(entryStream, bufferSize: 4096, cancellation);
-            }
+            using var entryStream = entry.Open();
+            using var fileStream = new FileStream(
+                filePath, FileMode.Open,
+                FileAccess.Read,
+                FileShare.None,
+                bufferSize: 4096,
+                useAsync: true);
+            await fileStream.CopyToAsync(entryStream, bufferSize: 4096, cancellation).ConfigureAwait(false);
         }
     }
 }

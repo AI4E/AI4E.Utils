@@ -39,7 +39,7 @@ namespace AI4E.Utils.Memory
 {
     public static partial class MemoryExtensions
     {
-        private static readonly int _scalarMultiplicationValue = 314159;
+        private const int _scalarMultiplicationValue = 314159;
         private static readonly ReadOnlyMemory<int> _scalarMultiplicationValuePowers = BuildScalarMultiplicationValuePowers();
         private static readonly Vector<int> _scalarMultiplicator = BuildScalarMultiplicator();
         private static readonly Vector<int> _vectorMultiplicator = BuildVectorMultiplicator();
@@ -63,7 +63,7 @@ namespace AI4E.Utils.Memory
             if (!IsReferenceOrContainsReferences<T>())
             {
                 Assert(TypeCache<T>._fastSequenceHashCode != null);
-                return TypeCache<T>._fastSequenceHashCode(span);
+                return TypeCache<T>._fastSequenceHashCode!.Invoke(span);
             }
 
             return SequenceHashCodeInternal(span);
@@ -74,7 +74,7 @@ namespace AI4E.Utils.Memory
             Assert(!IsReferenceOrContainsReferences<T>());
 
             unchecked
-            {              
+            {
                 var ints = MemoryMarshal.Cast<T, int>(span);
                 var intsLength = ints.Length;
                 var accumulator = 0;
@@ -153,7 +153,7 @@ namespace AI4E.Utils.Memory
                     // Fill vectorBuffer
                     for (var j = 0; j < Vector<int>.Count; j++)
                     {
-                        vectorBuffer[j] = span[j].GetHashCode();
+                        vectorBuffer[j] = span[j]?.GetHashCode() ?? 0;
                     }
                     span = span.Slice(Vector<int>.Count);
 
@@ -165,12 +165,12 @@ namespace AI4E.Utils.Memory
                         // Fill vectorBuffer
                         for (var j = 0; j < Vector<int>.Count; j++)
                         {
-                            vectorBuffer[j] = span[j].GetHashCode();
+                            vectorBuffer[j] = span[j]?.GetHashCode() ?? 0;
                         }
                         span = span.Slice(Vector<int>.Count);
 
                         vectorAccumulator *= _vectorMultiplicator;
-                        vectorAccumulator +=  vector * _scalarMultiplicator;
+                        vectorAccumulator += vector * _scalarMultiplicator;
                     }
 
                     for (var i = 0; i < Vector<int>.Count; i++)
@@ -186,7 +186,7 @@ namespace AI4E.Utils.Memory
                 for (var i = 0; i < span.Length; i++)
                 {
                     accumulator *= _scalarMultiplicationValue;
-                    accumulator += span[i].GetHashCode();
+                    accumulator += span[i]?.GetHashCode() ?? 0;
                 }
 
                 accumulator *= _scalarMultiplicationValue;
@@ -272,9 +272,9 @@ namespace AI4E.Utils.Memory
         {
             internal static readonly bool _isReferenceOrContainsReferences = IsReferenceOrContainsReferences();
 
-            internal static FastSequenceHashCodeInvoker<T> _fastSequenceHashCode = GetFastSequenceHashCodeInvoker();
+            internal static FastSequenceHashCodeInvoker<T>? _fastSequenceHashCode = GetFastSequenceHashCodeInvoker();
 
-            private static FastSequenceHashCodeInvoker<T> GetFastSequenceHashCodeInvoker()
+            private static FastSequenceHashCodeInvoker<T>? GetFastSequenceHashCodeInvoker()
             {
                 if (_isReferenceOrContainsReferences)
                 {
@@ -282,7 +282,7 @@ namespace AI4E.Utils.Memory
                 }
 
                 Assert(_fastSequenceHashCodeMethodDefinition != null);
-                Assert(_fastSequenceHashCodeMethodDefinition.GetGenericArguments().Length == 1);
+                Assert(_fastSequenceHashCodeMethodDefinition!.GetGenericArguments().Length == 1);
                 var fastSequenceHashCodeMethod = _fastSequenceHashCodeMethodDefinition.MakeGenericMethod(typeof(T));
                 Assert(fastSequenceHashCodeMethod.ReturnType == typeof(int));
 
@@ -303,7 +303,7 @@ namespace AI4E.Utils.Memory
                     var isReferenceOrContainsReferencesMethod = _isReferenceOrContainsReferencesMethodDefinition.MakeGenericMethod(type);
                     Assert(isReferenceOrContainsReferencesMethod.ReturnType == typeof(bool));
 
-                    return (bool)isReferenceOrContainsReferencesMethod.Invoke(obj: null, parameters: null);
+                    return (bool)isReferenceOrContainsReferencesMethod.Invoke(obj: null, parameters: null)!;
                 }
 
                 return IsReferenceOrContainsReferences(type);

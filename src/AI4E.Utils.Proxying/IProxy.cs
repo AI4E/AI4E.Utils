@@ -43,7 +43,7 @@ namespace AI4E.Utils.Proxying
         /// <summary>
         /// Gets the local proxied instance or null if this is a remote proxy.
         /// </summary>
-        object LocalInstance { get; }
+        object? LocalInstance { get; }
 
         /// <summary>
         /// Gets the static type of the proxy.
@@ -79,7 +79,7 @@ namespace AI4E.Utils.Proxying
         /// <summary>
         /// Gets the local proxied instance or null if this is a remote proxy.
         /// </summary>
-        new TRemote LocalInstance { get; }
+        new TRemote? LocalInstance { get; }
 
         /// <summary>
         /// Asynchronously invokes a member on the proxy instance.

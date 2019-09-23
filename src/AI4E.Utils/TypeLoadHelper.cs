@@ -31,34 +31,41 @@ using System.Collections.Generic;
 using System.Reflection;
 using static System.Diagnostics.Debug;
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace AI4E.Utils
 {
     public sealed class TypeLoadHelper
     {
-        public static Type LoadTypeFromUnqualifiedName(string unqualifiedTypeName, bool throwIfNotFound = true)
+        public static bool TryLoadTypeFromUnqualifiedName(string unqualifiedTypeName, [NotNullWhen(true)] out Type? type)
         {
-            Type result;
-
-            if (unqualifiedTypeName.IndexOf('`') >= 0)
+#pragma warning disable CA1062
+            if (unqualifiedTypeName.IndexOf('`', StringComparison.Ordinal) >= 0)
             {
-                result = LoadGenericType(unqualifiedTypeName);
+                type = LoadGenericType(unqualifiedTypeName);
+#pragma warning restore CA1062
             }
             else
             {
-                result = LoadNonGenericOrTypeDefinition(unqualifiedTypeName);
+                type = LoadNonGenericOrTypeDefinition(unqualifiedTypeName);
             }
 
-            if (result == null && throwIfNotFound)
+            return type != null;
+        }
+
+        public static Type LoadTypeFromUnqualifiedName(string unqualifiedTypeName)
+        {
+            if (!TryLoadTypeFromUnqualifiedName(unqualifiedTypeName, out var type))
             {
                 throw new ArgumentException($"Type '{unqualifiedTypeName}' could not be loaded.");
             }
 
-            return result;
+            return type!;
         }
 
-        private static Type LoadNonGenericOrTypeDefinition(string unqualifiedTypeName)
+        private static Type? LoadNonGenericOrTypeDefinition(string unqualifiedTypeName)
         {
-            Assert(!unqualifiedTypeName.Contains(","));
+            Assert(!unqualifiedTypeName.Contains(",", StringComparison.Ordinal));
 
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
@@ -73,15 +80,15 @@ namespace AI4E.Utils
             return null;
         }
 
-        private static Type TryLoad(Assembly assembly, string unqualifiedTypeName)
+        private static Type? TryLoad(Assembly assembly, string unqualifiedTypeName)
         {
             return assembly.GetType(unqualifiedTypeName, false);
         }
 
-        private static Type LoadGenericType(string unqualifiedTypeName)
+        private static Type? LoadGenericType(string unqualifiedTypeName)
         {
-            Type type = null;
-            var openBracketIndex = unqualifiedTypeName.IndexOf('[');
+            Type? type = null;
+            var openBracketIndex = unqualifiedTypeName.IndexOf('[', StringComparison.Ordinal);
             if (openBracketIndex >= 0)
             {
                 var genericTypeDefName = unqualifiedTypeName.Substring(0, openBracketIndex);

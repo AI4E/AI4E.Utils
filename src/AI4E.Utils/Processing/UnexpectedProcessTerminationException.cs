@@ -38,8 +38,10 @@ namespace AI4E.Utils.Processing
 
         public UnexpectedProcessTerminationException(string message) : base(message) { }
 
-        public UnexpectedProcessTerminationException(string message, Exception innerException) : base(message, innerException) { }
+        public UnexpectedProcessTerminationException(string message, Exception innerException)
+            : base(message, innerException) { }
 
-        private UnexpectedProcessTerminationException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+        private UnexpectedProcessTerminationException(SerializationInfo info, StreamingContext context)
+            : base(info, context) { }
     }
 }

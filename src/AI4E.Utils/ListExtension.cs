@@ -26,18 +26,15 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
-namespace AI4E.Utils
+namespace System.Collections.Generic
 {
-    public static class IListExtension
+    public static class AI4EUtilsListExtension
     {
+        [return: MaybeNull]
         public static T RemoveFirstWhere<T>(this IList<T> list, Func<T, bool> predicate)
         {
-            if (list == null)
-                throw new ArgumentNullException(nameof(list));
-
             if (predicate == null)
                 throw new ArgumentNullException(nameof(predicate));
 
@@ -51,7 +48,7 @@ namespace AI4E.Utils
                 }
             }
 
-            return default;
+            return default!;
         }
     }
 }

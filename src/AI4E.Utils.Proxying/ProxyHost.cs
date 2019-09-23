@@ -26,6 +26,8 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
+#nullable disable
+
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -62,7 +64,9 @@ namespace AI4E.Utils.Proxying
 
         #region Fields
 
+#pragma warning disable IDE0069, CA2213
         private readonly Stream _stream;
+#pragma warning restore IDE0069, CA2213
         private readonly IServiceProvider _serviceProvider;
         private readonly AsyncLock _sendLock = new AsyncLock();
         private readonly IAsyncProcess _receiveProcess;
@@ -89,12 +93,14 @@ namespace AI4E.Utils.Proxying
 
         #region Ctor
 
+#nullable enable
         /// <summary>
         /// Creates a new instance of the <see cref="ProxyHost"/> type.
         /// </summary>
         /// <param name="stream">A <see cref="Stream"/> that is used to communicate with the remote end-point.</param>
         /// <param name="serviceProvider">A <see cref="IServiceProvider"/> that is used to resolve services.</param>
         public ProxyHost(Stream stream, IServiceProvider serviceProvider)
+#nullable disable
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
@@ -113,30 +119,38 @@ namespace AI4E.Utils.Proxying
 
         #region Activation
 
+#nullable enable
         /// <inheritdoc />
         public Task<IProxy<TRemote>> CreateAsync<TRemote>(object[] parameter, CancellationToken cancellation)
             where TRemote : class
+#nullable disable
         {
-            return ActivateAsync<TRemote>(ActivationMode.Create, parameter ?? new object[0], cancellation);
+            return ActivateAsync<TRemote>(ActivationMode.Create, parameter ?? Array.Empty<object>(), cancellation);
         }
 
+#nullable enable
         /// <inheritdoc />
         public Task<IProxy<TRemote>> CreateAsync<TRemote>(CancellationToken cancellation)
             where TRemote : class
+#nullable disable
         {
-            return ActivateAsync<TRemote>(ActivationMode.Create, new object[0], cancellation);
+            return ActivateAsync<TRemote>(ActivationMode.Create, Array.Empty<object>(), cancellation);
         }
 
+#nullable enable
         /// <inheritdoc />
         public Task<IProxy<TRemote>> LoadAsync<TRemote>(CancellationToken cancellation)
             where TRemote : class
+#nullable disable
         {
             return ActivateAsync<TRemote>(ActivationMode.Load, parameter: null, cancellation);
         }
 
+#nullable enable
         /// <inheritdoc />
         public IProxy<TRemote> Create<TRemote>(object[] parameter)
             where TRemote : class
+#nullable disable
         {
             var proxy = new Proxy<TRemote>(this, GenerateRemoteProxyId(), ActivationMode.Create, parameter);
 
@@ -148,9 +162,11 @@ namespace AI4E.Utils.Proxying
             return proxy;
         }
 
+#nullable enable
         /// <inheritdoc />
         public IProxy<TRemote> Create<TRemote>()
             where TRemote : class
+#nullable disable
         {
             var proxy = new Proxy<TRemote>(this, GenerateRemoteProxyId(), ActivationMode.Create, activationParameters: null);
 
@@ -162,9 +178,11 @@ namespace AI4E.Utils.Proxying
             return proxy;
         }
 
+#nullable enable
         /// <inheritdoc />
         public IProxy<TRemote> Load<TRemote>()
             where TRemote : class
+#nullable disable
         {
             var proxy = new Proxy<TRemote>(this, GenerateRemoteProxyId(), ActivationMode.Load, activationParameters: null);
 
@@ -198,24 +216,22 @@ namespace AI4E.Utils.Proxying
                     stream.Position = 0;
                     stream.SetLength(0);
 
-                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
-                    {
-                        writer.Write((byte)MessageType.Activation);
-                        writer.Write(seqNum);
+                    using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+                    writer.Write((byte)MessageType.Activation);
+                    writer.Write(seqNum);
 
-                        writer.Write(id);
-                        writer.Write((byte)mode);
-                        WriteType(writer, typeof(TRemote));
-                        Serialize(writer, parameter?.Select(p => (p, p?.GetType())), null);
-                    }
+                    writer.Write(id);
+                    writer.Write((byte)mode);
+                    WriteType(writer, typeof(TRemote));
+                    Serialize(writer, parameter?.Select(p => (p, p?.GetType())), null);
                 }
                 while (!TryGetResultTask(seqNum, out result));
 
                 stream.Position = 0;
-                await SendAsync(stream, cancellation);
+                await SendAsync(stream, cancellation).ConfigureAwait(false);
             }
 
-            return await result;
+            return await result.ConfigureAwait(false);
         }
 
         internal async Task Deactivate(int proxyId, CancellationToken cancellation)
@@ -224,18 +240,16 @@ namespace AI4E.Utils.Proxying
             {
                 var seqNum = Interlocked.Increment(ref _nextSeqNum);
 
-                using (var stream = new MemoryStream())
+                using var stream = new MemoryStream();
+                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
                 {
-                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
-                    {
-                        writer.Write((byte)MessageType.Deactivation);
-                        writer.Write(seqNum);
-                        writer.Write(proxyId);
-                    }
-
-                    stream.Position = 0;
-                    await SendAsync(stream, cancellation);
+                    writer.Write((byte)MessageType.Deactivation);
+                    writer.Write(seqNum);
+                    writer.Write(proxyId);
                 }
+
+                stream.Position = 0;
+                await SendAsync(stream, cancellation).ConfigureAwait(false);
             }
             catch (ObjectDisposedException) { }
         }
@@ -254,24 +268,31 @@ namespace AI4E.Utils.Proxying
 
         #region Disposal
 
+#nullable enable
         /// <inheritdoc />
-        public Task Disposal => _disposeHelper.Disposal;
+        public Task Disposal
+#nullable disable
+            => _disposeHelper.Disposal;
 
+#nullable enable
         /// <inheritdoc />
         public void Dispose()
+#nullable disable
         {
             _disposeHelper.Dispose();
         }
 
+#nullable enable
         /// <inheritdoc />
         public ValueTask DisposeAsync()
+#nullable disable
         {
             return _disposeHelper.DisposeAsync();
         }
 
         private async Task DisposeInternalAsync()
         {
-            await _receiveProcess.TerminateAsync().HandleExceptionsAsync();
+            await _receiveProcess.TerminateAsync().HandleExceptionsAsync().ConfigureAwait(false);
 
             List<IProxyInternal> proxies;
 
@@ -293,7 +314,9 @@ namespace AI4E.Utils.Proxying
                 callback.Invoke(MessageType.ReturnException, objectDisposedException);
             }
 
-            await Task.WhenAll(proxies.Select(p => p.DisposeAsync().AsTask())).HandleExceptionsAsync();
+            await Task.WhenAll(proxies.Select(p => p.DisposeAsync().AsTask()))
+                .HandleExceptionsAsync()
+                .ConfigureAwait(false);
 
             _stream.Dispose();
         }
@@ -369,6 +392,7 @@ namespace AI4E.Utils.Proxying
             }
         }
 
+#nullable enable
         /// <summary>
         /// Creates a new proxy from the specified object instance.
         /// </summary>
@@ -379,6 +403,7 @@ namespace AI4E.Utils.Proxying
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="instance"/> is <c>null</c>.</exception>
         public static IProxy<TRemote> CreateProxy<TRemote>(TRemote instance, bool ownsInstance = false)
             where TRemote : class
+#nullable disable
         {
             if (instance == null)
                 throw new ArgumentNullException(nameof(instance));
@@ -418,23 +443,25 @@ namespace AI4E.Utils.Proxying
                 {
                     try
                     {
-                        await _stream.ReadExactAsync(messageLengthBytes, offset: 0, count: messageLengthBytes.Length, cancellation);
+                        await _stream.ReadExactAsync(
+                            messageLengthBytes, offset: 0, count: messageLengthBytes.Length, cancellation)
+                            .ConfigureAwait(false);
                         var messageLength = BinaryPrimitives.ReadInt32LittleEndian(messageLengthBytes.AsSpan());
 
                         var buffer = ArrayPool<byte>.Shared.Rent(messageLength);
                         try
                         {
-                            await _stream.ReadExactAsync(buffer, offset: 0, count: messageLength, cancellation);
+                            await _stream.ReadExactAsync(buffer, offset: 0, count: messageLength, cancellation)
+                                .ConfigureAwait(false);
 
                             // We do not want the process to be disturbed/blocked/deadlocked
                             Task.Run(async () =>
                             {
                                 try
                                 {
-                                    using (var messageStream = new MemoryStream(buffer, index: 0, count: messageLength, writable: false))
-                                    {
-                                        await HandleMessageAsync(messageStream, cancellation);
-                                    }
+                                    using var messageStream = new MemoryStream(
+                                        buffer, index: 0, count: messageLength, writable: false);
+                                    await HandleMessageAsync(messageStream, cancellation).ConfigureAwait(false);
                                 }
                                 finally
                                 {
@@ -463,7 +490,9 @@ namespace AI4E.Utils.Proxying
                     }
                 }
                 catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { throw; }
-                catch (Exception)
+#pragma warning disable CA1031
+                catch
+#pragma warning restore CA1031
                 {
                     // TODO: Log exception
                 }
@@ -472,34 +501,32 @@ namespace AI4E.Utils.Proxying
 
         private async Task HandleMessageAsync(Stream stream, CancellationToken cancellation)
         {
-            using (var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: false))
+            using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: false);
+            var messageType = (MessageType)reader.ReadByte();
+            var seqNum = reader.ReadInt32();
+
+            switch (messageType)
             {
-                var messageType = (MessageType)reader.ReadByte();
-                var seqNum = reader.ReadInt32();
+                case MessageType.ReturnValue:
+                case MessageType.ReturnException:
+                    ReceiveResult(messageType, reader);
+                    break;
 
-                switch (messageType)
-                {
-                    case MessageType.ReturnValue:
-                    case MessageType.ReturnException:
-                        ReceiveResult(messageType, reader);
-                        break;
+                case MessageType.MethodCall:
+                    await ReceiveMethodCallAsync(reader, seqNum, cancellation).ConfigureAwait(false);
+                    break;
 
-                    case MessageType.MethodCall:
-                        await ReceiveMethodCallAsync(reader, seqNum, cancellation);
-                        break;
+                case MessageType.Activation:
+                    await ReceiveActivationAsync(reader, seqNum, cancellation).ConfigureAwait(false);
+                    break;
 
-                    case MessageType.Activation:
-                        await ReceiveActivationAsync(reader, seqNum, cancellation);
-                        break;
+                case MessageType.Deactivation:
+                    ReceiveDeactivation(reader);
+                    break;
 
-                    case MessageType.Deactivation:
-                        ReceiveDeactivation(reader);
-                        break;
-
-                    case MessageType.CancellationRequest:
-                        ReceiveCancellationRequest(reader);
-                        break;
-                }
+                case MessageType.CancellationRequest:
+                    ReceiveCancellationRequest(reader);
+                    break;
             }
         }
 
@@ -553,19 +580,27 @@ namespace AI4E.Utils.Proxying
                     instance = _serviceProvider.GetRequiredService(type);
                 }
 
-                var proxy = (IProxyInternal)Activator.CreateInstance(typeof(Proxy<>).MakeGenericType(type), BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new[] { instance, ownsInstance }, null);
+                var proxy = (IProxyInternal)Activator.CreateInstance(
+                    typeof(Proxy<>).MakeGenericType(type),
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
+                    null,
+                    new[] { instance, ownsInstance },
+                    null);
                 result = RegisterLocalProxy(proxy);
             }
             catch (TargetInvocationException exc)
             {
                 exception = exc.InnerException;
             }
+#pragma warning disable CA1031
             catch (Exception exc)
+#pragma warning restore CA1031
             {
                 exception = exc;
             }
 
-            await SendResult(seqNum, result, result.GetType(), exception, waitTask: false, activatedProxies, cancellation);
+            await SendResult(seqNum, result, result.GetType(), exception, waitTask: false, activatedProxies, cancellation)
+                .ConfigureAwait(false);
         }
 
         private async Task ReceiveMethodCallAsync(BinaryReader reader, int seqNum, CancellationToken cancellation)
@@ -629,7 +664,11 @@ namespace AI4E.Utils.Proxying
                     waitTask = reader.ReadBoolean();
                     method = DeserializeMethod(reader);
 
-                    var arguments = Deserialize(reader, method.GetParameters(), cancellationTokenSources, activatedProxies).ToArray();
+                    var arguments = Deserialize(
+                        reader,
+                        method.GetParameters(),
+                        cancellationTokenSources,
+                        activatedProxies).ToArray();
 
                     var instance = proxy.LocalInstance;
 
@@ -645,12 +684,15 @@ namespace AI4E.Utils.Proxying
                 {
                     exception = exc.InnerException;
                 }
+#pragma warning disable CA1031
                 catch (Exception exc)
+#pragma warning restore CA1031
                 {
                     exception = exc;
                 }
 
-                await SendResult(seqNum, result, returnType, exception, waitTask, activatedProxies, cancellation);
+                await SendResult(seqNum, result, returnType, exception, waitTask, activatedProxies, cancellation)
+                    .ConfigureAwait(false);
             }
             finally
             {
@@ -702,9 +744,12 @@ namespace AI4E.Utils.Proxying
 
                 try
                 {
-                    await _stream.WriteAsync(_sendMessageLengthBuffer, offset: 0, count: _sendMessageLengthBuffer.Length);
+                    await _stream.WriteAsync(
+                        _sendMessageLengthBuffer, offset: 0, count: _sendMessageLengthBuffer.Length)
+                        .ConfigureAwait(false);
 
-                    await stream.CopyToAsync(_stream, bufferSize: 81920, cancellation);
+                    await stream.CopyToAsync(_stream, bufferSize: 81920, cancellation)
+                        .ConfigureAwait(false);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -727,20 +772,14 @@ namespace AI4E.Utils.Proxying
             {
                 try
                 {
-                    var t = (Task)result;
-                    await t;
-                    result = t.GetResult();
-
-                    if (!t.GetType().IsGenericType || t.GetType().GetGenericArguments()[0] == Type.GetType("System.Threading.Tasks.VoidTaskResult"))
-                    {
-                        resultType = typeof(void);
-                    }
-                    else
-                    {
-                        resultType = t.GetType().GetGenericArguments()[0];
-                    }
+                    var task = (Task)result;
+                    await task.ConfigureAwait(false);
+                    result = task.GetResultOrDefault();
+                    resultType = task.GetResultType();
                 }
+#pragma warning disable CA1031
                 catch (Exception exc)
+#pragma warning restore CA1031
                 {
                     exception = exc;
                 }
@@ -748,35 +787,33 @@ namespace AI4E.Utils.Proxying
 
             var seqNum = Interlocked.Increment(ref _nextSeqNum);
 
-            using (var stream = new MemoryStream())
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
             {
-                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
+                writer.Write(exception == null ? (byte)MessageType.ReturnValue : (byte)MessageType.ReturnException);
+                writer.Write(seqNum);
+                writer.Write(corrNum);
+
+                writer.Write(activatedProxies.Count);
+
+                foreach (var (id, objectType) in activatedProxies)
                 {
-                    writer.Write(exception == null ? (byte)MessageType.ReturnValue : (byte)MessageType.ReturnException);
-                    writer.Write(seqNum);
-                    writer.Write(corrNum);
-
-                    writer.Write(activatedProxies.Count);
-
-                    foreach (var (id, objectType) in activatedProxies)
-                    {
-                        writer.Write(id);
-                        writer.Write(objectType.AssemblyQualifiedName);
-                    }
-
-                    if (exception != null)
-                    {
-                        Serialize(writer, exception, exception.GetType(), null);
-                    }
-                    else
-                    {
-                        Serialize(writer, result, resultType, null);
-                    }
+                    writer.Write(id);
+                    writer.Write(objectType.AssemblyQualifiedName);
                 }
 
-                stream.Position = 0;
-                await SendAsync(stream, cancellation);
+                if (exception != null)
+                {
+                    Serialize(writer, exception, exception.GetType(), null);
+                }
+                else
+                {
+                    Serialize(writer, result, resultType, null);
+                }
             }
+
+            stream.Position = 0;
+            await SendAsync(stream, cancellation).ConfigureAwait(false);
         }
 
         internal Task<TResult> SendMethodCallAsync<TResult>(Expression expression, IProxyInternal proxy, bool waitTask)
@@ -808,139 +845,147 @@ namespace AI4E.Utils.Proxying
             var seqNum = default(int);
             var task = default(Task<TResult>);
 
-            using (var stream = new MemoryStream())
+            using var stream = new MemoryStream();
+            var cancellationTokens = new List<CancellationToken>();
+
+            do
             {
-                var cancellationTokens = new List<CancellationToken>();
-
-                do
-                {
-                    seqNum = Interlocked.Increment(ref _nextSeqNum);
-
-                    stream.Position = 0;
-                    stream.SetLength(0);
-
-                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
-                    {
-                        writer.Write((byte)MessageType.MethodCall);
-                        writer.Write(seqNum);
-
-                        writer.Write(proxy.Id);
-
-                        var isActivated = proxy.IsActivated;
-
-                        writer.Write(isActivated);
-
-                        if (!isActivated)
-                        {
-                            var proxyType = proxy.RemoteType;
-                            writer.Write(proxyType.AssemblyQualifiedName);
-                            writer.Write((byte)proxy.ActivationMode);
-                            Serialize(writer, proxy.ActivationParamers?.Select(p => (p, p?.GetType())), null);
-                        }
-
-                        writer.Write(waitTask);
-                        SerializeMethod(writer, method);
-                        Serialize(writer, args.ElementWiseMerge(method.GetParameters(), (arg, param) => (arg, param.ParameterType)), cancellationTokens);
-                        writer.Flush();
-                    }
-                }
-                while (!TryGetResultTask(seqNum, out task));
+                seqNum = Interlocked.Increment(ref _nextSeqNum);
 
                 stream.Position = 0;
+                stream.SetLength(0);
 
-                var registrations = new List<CancellationTokenRegistration>(capacity: cancellationTokens.Count);
-                var cancellations = new List<Task>();
+                using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+                writer.Write((byte)MessageType.MethodCall);
+                writer.Write(seqNum);
 
-                using (var cancellationOperationCancellation = new CancellationTokenSource())
+                writer.Write(proxy.Id);
+
+                var isActivated = proxy.IsActivated;
+
+                writer.Write(isActivated);
+
+                if (!isActivated)
                 {
+                    var proxyType = proxy.RemoteType;
+                    writer.Write(proxyType.AssemblyQualifiedName);
+                    writer.Write((byte)proxy.ActivationMode);
+                    Serialize(writer, proxy.ActivationParamers?.Select(p => (p, p?.GetType())), null);
+                }
+
+                writer.Write(waitTask);
+                SerializeMethod(writer, method);
+                Serialize(writer, args.Zip(method.GetParameters(), (arg, param) => (arg, param.ParameterType)), cancellationTokens);
+                writer.Flush();
+            }
+            while (!TryGetResultTask(seqNum, out task));
+
+            stream.Position = 0;
+
+            var registrations = new List<CancellationTokenRegistration>(capacity: cancellationTokens.Count);
+            var cancellations = new List<Task>();
+
+            using var cancellationOperationCancellation = new CancellationTokenSource();
+
+            List<Exception> exceptions = null;
+            TResult result = default;
+            try
+            {
+                for (var id = 0; id < cancellationTokens.Count; id++)
+                {
+                    var cancellationToken = cancellationTokens[id];
+                    if (!cancellationToken.CanBeCanceled)
+                    {
+                        continue;
+                    }
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        cancellations.Add(CancelMethodCallAsync(seqNum, id, cancellationOperationCancellation.Token));
+                        continue;
+                    }
+
+                    var idCopy = id;
+                    var registration = cancellationToken.Register(() => cancellations.Add(CancelMethodCallAsync(seqNum, idCopy, cancellationOperationCancellation.Token)));
                     try
                     {
-                        for (var id = 0; id < cancellationTokens.Count; id++)
+                        if (cancellationToken.IsCancellationRequested)
                         {
-                            var cancellationToken = cancellationTokens[id];
-                            if (!cancellationToken.CanBeCanceled)
-                            {
-                                continue;
-                            }
-
-                            if (cancellationToken.IsCancellationRequested)
-                            {
-                                cancellations.Add(CancelMethodCallAsync(seqNum, id, cancellationOperationCancellation.Token));
-                                continue;
-                            }
-
-                            var idCopy = id;
-                            var registration = cancellationToken.Register(() => cancellations.Add(CancelMethodCallAsync(seqNum, idCopy, cancellationOperationCancellation.Token)));
-                            try
-                            {
-                                if (cancellationToken.IsCancellationRequested)
-                                {
-                                    cancellations.Add(CancelMethodCallAsync(seqNum, id, cancellationOperationCancellation.Token));
-                                    registration.Dispose();
-                                    continue;
-                                }
-
-                                registrations.Add(registration);
-                            }
-                            catch
-                            {
-                                registration.Dispose();
-                                throw;
-                            }
+                            cancellations.Add(CancelMethodCallAsync(seqNum, id, cancellationOperationCancellation.Token));
+                            registration.Dispose();
+                            continue;
                         }
 
-                        await SendAsync(stream, cancellation: default);
-
-                        return await task;
+                        registrations.Add(registration);
                     }
-                    finally
+                    catch
                     {
-                        List<Exception> exceptions = null;
-
-                        foreach (var registration in registrations)
-                        {
-                            try
-                            {
-                                registration.Dispose();
-                            }
-                            catch (Exception exc)
-                            {
-                                if (exceptions == null)
-                                    exceptions = new List<Exception>();
-
-                                exceptions.Add(exc);
-                            }
-                        }
-
-                        cancellationOperationCancellation.Cancel();
-
-                        if (cancellations.Any())
-                        {
-                            try
-                            {
-                                await Task.WhenAll(cancellations);
-                            }
-                            catch (Exception exc)
-                            {
-                                if (exceptions == null)
-                                    exceptions = new List<Exception>();
-
-                                exceptions.Add(exc);
-                            }
-                        }
-
-                        if (exceptions != null)
-                        {
-                            if (exceptions.Count == 1)
-                            {
-                                throw exceptions[0];
-                            }
-
-                            throw new AggregateException(exceptions);
-                        }
+                        registration.Dispose();
+                        throw;
                     }
                 }
+
+                await SendAsync(stream, cancellation: default).ConfigureAwait(false);
+
+                result = await task.ConfigureAwait(false);
             }
+#pragma warning disable CA1031
+            catch (Exception exc)
+#pragma warning restore CA1031
+            {
+                if (exceptions == null)
+                    exceptions = new List<Exception>();
+
+                exceptions.Add(exc);
+            }
+
+            foreach (var registration in registrations)
+            {
+                try
+                {
+                    registration.Dispose();
+                }
+#pragma warning disable CA1031
+                catch (Exception exc)
+#pragma warning restore CA1031
+                {
+                    if (exceptions == null)
+                        exceptions = new List<Exception>();
+
+                    exceptions.Add(exc);
+                }
+            }
+
+            cancellationOperationCancellation.Cancel();
+
+            if (cancellations.Any())
+            {
+                try
+                {
+                    await Task.WhenAll(cancellations).ConfigureAwait(false);
+                }
+#pragma warning disable CA1031
+                catch (Exception exc)
+#pragma warning restore CA1031
+                {
+                    if (exceptions == null)
+                        exceptions = new List<Exception>();
+
+                    exceptions.Add(exc);
+                }
+            }
+
+            if (exceptions != null)
+            {
+                if (exceptions.Count == 1)
+                {
+                    throw exceptions[0];
+                }
+
+                throw new AggregateException(exceptions);
+            }
+
+            return result;
         }
 
         private async Task CancelMethodCallAsync(int corrNum, int cancellationTokenId, CancellationToken cancellation)
@@ -963,12 +1008,12 @@ namespace AI4E.Utils.Proxying
                     }
 
                     stream.Position = 0;
-                    await SendAsync(stream, cancellation: default);
+                    await SendAsync(stream, cancellation: default).ConfigureAwait(false);
                 }
 
                 try
                 {
-                    await Task.Delay(delay, cancellation);
+                    await Task.Delay(delay, cancellation).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
                 {
@@ -1036,7 +1081,7 @@ namespace AI4E.Utils.Proxying
 
         #region Serialization
 
-        private void SerializeMethod(BinaryWriter writer, MethodInfo method)
+        private static void SerializeMethod(BinaryWriter writer, MethodInfo method)
         {
             writer.Write(method.IsGenericMethod);
             writer.Write(method.DeclaringType.AssemblyQualifiedName);
@@ -1064,7 +1109,7 @@ namespace AI4E.Utils.Proxying
             }
         }
 
-        private MethodInfo DeserializeMethod(BinaryReader reader)
+        private static MethodInfo DeserializeMethod(BinaryReader reader)
         {
             var isGenericMethod = reader.ReadBoolean();
 
@@ -1534,12 +1579,12 @@ namespace AI4E.Utils.Proxying
             return (IProxyInternal)createMethod.Invoke(obj: null, new[] { proxy });
         }
 
-        private void WriteType(BinaryWriter writer, Type type)
+        private static void WriteType(BinaryWriter writer, Type type)
         {
             writer.Write(type.AssemblyQualifiedName);
         }
 
-        private Type ReadType(BinaryReader reader)
+        private static Type ReadType(BinaryReader reader)
         {
             var assemblyQualifiedName = reader.ReadString();
             return LoadTypeIgnoringVersion(assemblyQualifiedName);
@@ -1577,7 +1622,7 @@ namespace AI4E.Utils.Proxying
                 selector.AddSurrogate(transparentProxyType, new StreamingContext(), proxySurrogate);
             }
 
-            var cancellationTokenSurrogate = new CancellationTokenSurrogate(this, cancellationTokenSources, cancellationTokens);
+            var cancellationTokenSurrogate = new CancellationTokenSurrogate(cancellationTokenSources, cancellationTokens);
 
             selector.AddSurrogate(typeof(CancellationToken), new StreamingContext(), cancellationTokenSurrogate);
 
@@ -1716,18 +1761,13 @@ namespace AI4E.Utils.Proxying
 
         private sealed class CancellationTokenSurrogate : ISerializationSurrogate
         {
-            private readonly ProxyHost _proxyHost;
             private readonly Dictionary<int, CancellationTokenSource> _cancellationTokenSources;
             private readonly List<CancellationToken> _cancellationTokens;
 
             public CancellationTokenSurrogate(
-                ProxyHost proxyHost,
                 Dictionary<int, CancellationTokenSource> cancellationTokenSources,
                 List<CancellationToken> cancellationTokens)
             {
-                Debug.Assert(proxyHost != null);
-
-                _proxyHost = proxyHost;
                 _cancellationTokenSources = cancellationTokenSources;
                 _cancellationTokens = cancellationTokens;
             }
@@ -1779,3 +1819,5 @@ namespace AI4E.Utils.Proxying
         Load
     }
 }
+
+#nullable enable

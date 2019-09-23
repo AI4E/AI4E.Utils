@@ -185,7 +185,7 @@ namespace AI4E.Utils
 
             ///// COPY ELEMENTS OF ARRAY
 
-            if (type.IsArray() && type.GetElementType().IsTypeToDeepCopy())
+            if (type.IsArray && type.GetElementType().IsTypeToDeepCopy())
             {
                 CreateArrayCopyLoopExpression(type,
                                               inputParameter,
@@ -470,34 +470,14 @@ namespace AI4E.Utils
             ParameterExpression inputParameter,
             int i)
         {
-            ///// Intended code:
-            /////
-            ///// length = ((Array)input).GetLength(i); 
 
-            ConstantExpression dimensionConstant;
-
-            switch (i)
+            var dimensionConstant = i switch
             {
-                case 0:
-                    dimensionConstant = _zeroIntConstantExpression;
-                    break;
-
-                case 1:
-                    dimensionConstant = _oneIntConstantExpression;
-                    break;
-
-                case 2:
-                    dimensionConstant = _twoIntConstantExpression;
-                    break;
-
-                default:
-#pragma warning disable HAA0601 // Value type to reference type conversion causing boxing allocation
-                    dimensionConstant = Expression.Constant(i);
-#pragma warning restore HAA0601 // Value type to reference type conversion causing boxing allocation
-                    break;
-
-            }
-
+                0 => _zeroIntConstantExpression,
+                1 => _oneIntConstantExpression,
+                2 => _twoIntConstantExpression,
+                _ => Expression.Constant(i),
+            };
             var convertedInput = Expression.Convert(inputParameter, typeof(Array));
             var arrayGetLengthArguments = new Expression[] { dimensionConstant };
             var arrayGetLengthCall = Expression.Call(convertedInput, _arrayGetLengthMethod, arrayGetLengthArguments);

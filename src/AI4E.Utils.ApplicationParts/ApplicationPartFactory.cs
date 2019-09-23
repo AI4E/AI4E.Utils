@@ -92,11 +92,10 @@ namespace AI4E.Utils.ApplicationParts
             var type = provideAttribute.GetFactoryType();
             if (!typeof(ApplicationPartFactory).IsAssignableFrom(type))
             {
-                throw new InvalidOperationException(string.Format(
-                    "Type {0} specified by {1} is invalid. Type specified by {1} must derive from {2}.",
-                    type,
-                    nameof(ProvideApplicationPartFactoryAttribute),
-                    typeof(ApplicationPartFactory)));
+                throw new InvalidOperationException(
+                    $"Type {type} specified by {nameof(ProvideApplicationPartFactoryAttribute)} is invalid. " +
+                    $"Type specified by {nameof(ProvideApplicationPartFactoryAttribute)} must derive " +
+                    $"from {typeof(ApplicationPartFactory)}.");
             }
 
             return (ApplicationPartFactory)Activator.CreateInstance(type);

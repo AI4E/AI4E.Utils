@@ -35,19 +35,9 @@ namespace System.Security.Cryptography
 {
     public static class HashAlgorithmExtension
     {
-        private static readonly TryComputeHashShim _tryComputeHashShim;
+        private static readonly TryComputeHashShim? _tryComputeHashShim= BuildTryComputeHashShim(typeof(HashAlgorithm));
 
-        static HashAlgorithmExtension()
-        {
-            var hashAlgorithmType = typeof(HashAlgorithm);
-
-            if (hashAlgorithmType != null)
-            {
-                _tryComputeHashShim = BuildTryComputeHashShim(hashAlgorithmType);
-            }
-        }
-
-        private static TryComputeHashShim BuildTryComputeHashShim(Type hashAlgorithmType)
+        private static TryComputeHashShim? BuildTryComputeHashShim(Type hashAlgorithmType)
         {
             var tryCompateHashMethod = hashAlgorithmType.GetMethod("TryComputeHash",
                                                                    BindingFlags.Instance | BindingFlags.Public,

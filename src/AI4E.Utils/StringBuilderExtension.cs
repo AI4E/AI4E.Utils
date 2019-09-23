@@ -26,17 +26,22 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System.Text;
+using System.Globalization;
 
-namespace AI4E.Utils
+namespace System.Text
 {
     // Adapted from: https://stackoverflow.com/questions/1359948/why-doesnt-stringbuilder-have-indexof-method
-    public static class StringBuilderExtension
+    public static class AI4EUtilsStringBuilderExtension
     {
         public static int IndexOf(this StringBuilder sb, string value, int startIndex, bool ignoreCase)
         {
+            if (value is null)
+                throw new ArgumentNullException(nameof(value));
+
             var length = value.Length;
-            var maxSearchLength = (sb.Length - length) + 1;
+#pragma warning disable CA1062
+            var maxSearchLength = sb.Length - length + 1;
+#pragma warning restore CA1062
 
             for (var i = startIndex; i < maxSearchLength; ++i)
             {
@@ -56,7 +61,9 @@ namespace AI4E.Utils
 
         public static int IndexOf(this StringBuilder sb, char value, int startIndex, bool ignoreCase)
         {
+#pragma warning disable CA1062
             for (var i = startIndex; i < sb.Length; ++i)
+#pragma warning restore CA1062
             {
                 if (AreEqual(sb[i], value, ignoreCase))
                     return i;
@@ -67,8 +74,14 @@ namespace AI4E.Utils
 
         public static int LastIndexOf(this StringBuilder sb, string value, int startIndex, bool ignoreCase)
         {
+            if (value is null)
+                throw new ArgumentNullException(nameof(value));
+
+
             var length = value.Length;
+#pragma warning disable CA1062
             var maxSearchLength = sb.Length - length;
+#pragma warning restore CA1062
 
             for (var i = maxSearchLength; i >= startIndex; --i)
             {
@@ -87,7 +100,9 @@ namespace AI4E.Utils
 
         public static int LastIndexOf(this StringBuilder sb, char value, int startIndex, bool ignoreCase)
         {
+#pragma warning disable CA1062
             for (var i = sb.Length - 1; i >= startIndex; --i)
+#pragma warning restore CA1062
             {
                 if (AreEqual(sb[i], value, ignoreCase))
                     return i;
@@ -100,7 +115,7 @@ namespace AI4E.Utils
         {
             if (ignoreCase)
             {
-                return char.ToLower(c1) == char.ToLower(c2);
+                return char.ToLower(c1, CultureInfo.InvariantCulture) == char.ToLower(c2, CultureInfo.InvariantCulture);
             }
 
             return c1 == c2;

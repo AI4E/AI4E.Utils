@@ -35,12 +35,14 @@ using Nito.AsyncEx;
 
 namespace AI4E.Utils.Processing
 {
+#pragma warning disable CA1001
     public sealed class AsyncProcessScheduler
+#pragma warning restore CA1001
     {
         private volatile ImmutableHashSet<ITrigger> _triggers = ImmutableHashSet<ITrigger>.Empty;
         private readonly AsyncManualResetEvent _event = new AsyncManualResetEvent();
 
-        private CancellationTokenSource _cancelSource = null;
+        private CancellationTokenSource? _cancelSource = null;
         private bool _triggersTouched = false;
         private readonly object _lock = new object();
 
@@ -89,12 +91,12 @@ namespace AI4E.Utils.Processing
                     var awaitedTasks = triggers.Select(p => p.NextTriggerAsync(_cancelSource.Token)).Append(_event.WaitAsync(_cancelSource.Token));
 
                     // Asynchronously wait for any tasks to complete.
-                    var completedTask = await Task.WhenAny(awaitedTasks);
+                    var completedTask = await Task.WhenAny(awaitedTasks).ConfigureAwait(false);
 
                     try
                     {
                         // Trigger any thrown exceptions.
-                        await completedTask;
+                        await completedTask.ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (_cancelSource.IsCancellationRequested)
                     {
@@ -103,6 +105,7 @@ namespace AI4E.Utils.Processing
 
                     // Cancel all trigger tasks that were not completed.
                     _cancelSource.Cancel();
+                    _cancelSource.Dispose();
 
                     lock (_lock)
                     {

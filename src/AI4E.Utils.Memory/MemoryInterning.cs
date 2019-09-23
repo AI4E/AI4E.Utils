@@ -29,6 +29,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -37,17 +38,28 @@ using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils.Memory
 {
+    public static class MemoryInterning
+    {
+        public static MemoryInterning<T> GetInstance<T>()
+            where T : IEquatable<T>
+        {
+            return MemoryInterning<T>.Instance;
+        }
+    }
+
+#pragma warning disable CA1001
     public sealed class MemoryInterning<T>
+#pragma warning restore CA1001
         where T : IEquatable<T>
     {
         private static readonly IEqualityComparer<ReadOnlyMemory<T>> _memoryEqualityComparer = new MemoryEqualityComparer();
 
-        public static MemoryInterning<T> Instance { get; } = new MemoryInterning<T>();
+        internal static MemoryInterning<T> Instance { get; } = new MemoryInterning<T>();
 
         private readonly ConcurrentDictionary<ReadOnlyMemory<T>, ReadOnlyMemory<T>> _lookup;
         private readonly ThreadLocal<Dictionary<ReadOnlyMemory<T>, ReadOnlyMemory<T>>> _tlsLookup;
 
-        public MemoryInterning(IEqualityComparer<T> equalityComparer = null)
+        private MemoryInterning()
         {
             _lookup = new ConcurrentDictionary<ReadOnlyMemory<T>, ReadOnlyMemory<T>>(_memoryEqualityComparer);
             _tlsLookup = new ThreadLocal<Dictionary<ReadOnlyMemory<T>, ReadOnlyMemory<T>>>(() => new Dictionary<ReadOnlyMemory<T>, ReadOnlyMemory<T>>(), trackAllValues: false);
@@ -56,8 +68,8 @@ namespace AI4E.Utils.Memory
         public ReadOnlyMemory<T> Intern(ReadOnlyMemory<T> memory)
         {
             var tlsLookup = _tlsLookup.Value;
-
-            if (!tlsLookup.TryGetValue(memory, out var internedValue))
+            Debug.Assert(tlsLookup != null);
+            if (!tlsLookup!.TryGetValue(memory, out var internedValue))
             {
                 internedValue = _lookup.GetOrAdd(memory, InternValue);
                 tlsLookup.Add(memory, internedValue);

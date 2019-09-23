@@ -37,6 +37,6 @@ namespace AI4E.Utils
 
         private NoOpDisposable() { }
 
-        void IDisposable.Dispose() { }
+        public void Dispose() { }
     }
 }

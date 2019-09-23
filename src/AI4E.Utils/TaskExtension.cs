@@ -26,33 +26,29 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Reflection;
+using AI4E.Utils;
 using Microsoft.Extensions.Logging;
 
-namespace AI4E.Utils
+namespace System.Threading.Tasks
 {
-    public static class TaskExtension
+    public static class AI4EUtilsTaskExtension
     {
         public static bool IsRunning(this Task task)
         {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
+#pragma warning disable CA1062
             return !(task.IsCanceled || task.IsCompleted || task.IsFaulted);
+#pragma warning restore CA1062
         }
 
-        #region IgnoreCancellation
-
-        public static void IgnoreCancellation(this Task task, ILogger logger)
+        public static void IgnoreCancellation(this Task task, ILogger? logger = null)
         {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
+#pragma warning disable CA1062
             task.ContinueWith(t =>
+#pragma warning restore CA1062
             {
                 if (t.Exception != null)
                 {
@@ -67,21 +63,22 @@ namespace AI4E.Utils
                         else
                         {
                             Debug.WriteLine("An exception occured in the task.");
-                            Debug.WriteLine(exception.ToString());
+                            if (exception != null)
+                            {
+                                Debug.WriteLine(exception.ToString());
+                            }
                         }
                     }
                 }
-            });
+            }, TaskScheduler.Default);
         }
 
         public static Task IgnoreCancellationAsync(this Task task)
         {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
-            var tcs = new TaskCompletionSource<object>();
-
+            var tcs = new TaskCompletionSource<object?>();
+#pragma warning disable CA1062
             task.ContinueWith(t =>
+#pragma warning restore CA1062
             {
                 if (t.Exception != null &&
                     t.Exception.InnerExceptions.Any(e => !(e is OperationCanceledException)))
@@ -92,7 +89,7 @@ namespace AI4E.Utils
                 {
                     tcs.SetResult(null);
                 }
-            });
+            }, TaskScheduler.Default);
 
             return tcs.Task;
         }
@@ -102,62 +99,11 @@ namespace AI4E.Utils
             IgnoreCancellation(task, logger: null);
         }
 
-        #endregion
-
-        public static void HandleExceptions(this ValueTask valueTask, ILogger logger = null)
+        public static void HandleExceptions(this Task task, ILogger? logger = null)
         {
-            if (valueTask.IsCompletedSuccessfully)
-            {
-                return;
-            }
-
-            if (valueTask.IsCompleted)
-            {
-                try
-                {
-                    valueTask.GetAwaiter().GetResult();
-                }
-                catch (Exception exc)
-                {
-                    ExceptionHelper.LogException(exc, logger);
-                }
-
-                return;
-            }
-
-            HandleExceptions(valueTask.AsTask(), logger);
-        }
-
-        public static void HandleExceptions<T>(this ValueTask<T> valueTask, ILogger logger = null)
-        {
-            if (valueTask.IsCompletedSuccessfully)
-            {
-                return;
-            }
-
-            if (valueTask.IsCompleted)
-            {
-                try
-                {
-                    valueTask.GetAwaiter().GetResult();
-                }
-                catch (Exception exc)
-                {
-                    ExceptionHelper.LogException(exc, logger);
-                }
-
-                return;
-            }
-
-            HandleExceptions(valueTask.AsTask(), logger);
-        }
-
-        public static void HandleExceptions(this Task task, ILogger logger = null)
-        {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
+#pragma warning disable CA1062
             task.ContinueWith(t =>
+#pragma warning restore CA1062
             {
                 if (t.Exception != null)
                 {
@@ -167,35 +113,28 @@ namespace AI4E.Utils
                     }
                     else
                     {
-                        Debug.WriteLine("An exception occured unexpectedly.");
-                        Debug.WriteLine(t.Exception.InnerException.ToString());
+                        Debug.WriteLine("An exception occured in the task.");
+                        Debug.WriteLine(t.Exception.ToString());
                     }
                 }
-            });
+            }, TaskScheduler.Default);
         }
 
-        public static Task HandleExceptionsAsync(this Task task, ILogger logger = null)
+        public static Task HandleExceptionsAsync(this Task task, ILogger? logger = null)
         {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
-            return ExceptionHelper.HandleExceptions(async () => await task, logger, Task.CompletedTask);
+            return ExceptionHelper.HandleExceptions(async () => await task.ConfigureAwait(false), logger, Task.CompletedTask);
         }
 
-        public static Task<T> HandleExceptionsAsync<T>(this Task<T> task, T defaultValue = default, ILogger logger = null)
+        public static Task<T> HandleExceptionsAsync<T>(this Task<T> task, T defaultValue = default, ILogger? logger = null)
         {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
-            return ExceptionHelper.HandleExceptions(async () => await task, logger, Task.FromResult(defaultValue));
+            return ExceptionHelper.HandleExceptions(async () => await task.ConfigureAwait(false), logger, Task.FromResult(defaultValue));
         }
 
         public static Task WithCancellation(this Task task, CancellationToken cancellation)
         {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
+#pragma warning disable CA1062
             if (!cancellation.CanBeCanceled || task.IsCompleted)
+#pragma warning restore CA1062
             {
                 return task;
             }
@@ -224,16 +163,15 @@ namespace AI4E.Utils
                     task.HandleExceptions();
                 }
 
-                await completed;
+                await completed.ConfigureAwait(false);
             }
         }
 
         public static Task<T> WithCancellation<T>(this Task<T> task, CancellationToken cancellation)
         {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
+#pragma warning disable CA1062
             if (!cancellation.CanBeCanceled || task.IsCompleted)
+#pragma warning restore CA1062
             {
                 return task;
             }
@@ -262,34 +200,51 @@ namespace AI4E.Utils
                     task.HandleExceptions();
                 }
 
-                return await completed;
+                return await completed.ConfigureAwait(false);
             }
         }
 
-        public static object GetResult(this Task t)
+        public static object? GetResultOrDefault(this Task task)
         {
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
+#pragma warning disable CS8625
+            // Just ignore the nullability warning here as the value is never used in the target method.
+            return GetResultOrDefault(task, null);
+#pragma warning restore CS8625
+        }
 
-            t.GetAwaiter().GetResult();
+        public static object GetResultOrDefault(this Task task, object defaultValue)
+        {
+#pragma warning disable CA1062
+            task.ConfigureAwait(false).GetAwaiter().GetResult();
+#pragma warning restore CA1062
 
-            if (t.IsFaulted ||
-                t.IsCanceled ||
-               !t.GetType().IsGenericType ||
-                t.GetType().GetGenericArguments()[0] == Type.GetType("System.Threading.Tasks.VoidTaskResult"))
+            if (task.IsFaulted ||
+                task.IsCanceled ||
+                task.GetResultType() == typeof(void))
             {
-                return null;
+                return defaultValue;
             }
 
-            return t.GetType().GetProperty("Result").GetValue(t);
+            return task.GetType().GetProperty("Result")!.GetValue(task) ?? defaultValue;
         }
 
-        public static Task<T> WithResult<T>(this Task t, T result)
+        public static Type GetResultType(this Task task)
         {
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
+#pragma warning disable CA1062
+            var taskType = task.GetType();
+#pragma warning restore CA1062
+            var result = taskType.GetTaskResultType();
+            Debug.Assert(result != null);
+            return result!;
+        }
 
-            return t.ContinueWith(_ => result);
+        public static async Task<T> WithResult<T>(this Task task, T result)
+        {
+#pragma warning disable CA1062
+            await task.ConfigureAwait(false);
+#pragma warning restore CA1062
+
+            return result;
         }
 
         public static ValueTask AsValueTask(this Task task)
@@ -301,55 +256,64 @@ namespace AI4E.Utils
         {
             return new ValueTask<T>(task);
         }
-    }
 
-    public sealed class ExceptionHelper
-    {
-        public static void HandleExceptions(Action action, ILogger logger = null)
+        public static async IAsyncEnumerable<T> YieldAsync<T>(this Task<T> task)
         {
+#pragma warning disable CA1062
+            yield return await task.ConfigureAwait(false);
+#pragma warning restore CA1062
+        }
+
+        private static readonly MethodInfo _convertTaskMethodDefinition =
+            typeof(AI4EUtilsTaskExtension)
+            .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+            .SingleOrDefault(p => p.Name == nameof(ConvertTask) && p.IsGenericMethodDefinition)
+            ?? throw new Exception($"Unable to reflect method 'AI4EUtilsTaskExtension.ConvertTask`2'.");
+
+        // Converts Task<T> to Task<TResult> with TResult == resultType and T must be convertible to TResult.
+        public static Task Convert(this Task task, Type resultType)
+        {
+            if (resultType is null)
+                throw new ArgumentNullException(nameof(resultType));
+
+            if (resultType == typeof(void))
+                return task;
+
+            var taskType = task.GetResultType();
+
+            if (taskType == resultType)
+                return task;
+
+            if (taskType == typeof(void))
+                throw new ArgumentException("The argument must be an instance of a generic task type.", nameof(task));
+
             try
             {
-                action();
+                var result = _convertTaskMethodDefinition
+                    .MakeGenericMethod(taskType, resultType)
+                    .Invoke(null, new[] { task }) as Task;
+                Debug.Assert(result != null);
+                return result!;
             }
-            catch (Exception exc)
+            catch (TargetInvocationException exc)
             {
-                if (logger != null)
+                if (exc.InnerException != null)
                 {
-                    logger.LogError(exc, "An exception occured unexpectedly.");
+                    throw exc.InnerException;
                 }
-                else
-                {
-                    Debug.WriteLine("An exception occured unexpectedly.");
-                    Debug.WriteLine(exc.ToString());
-                }
+
+                throw;
             }
         }
 
-        public static T HandleExceptions<T>(Func<T> func, ILogger logger = null, T defaultValue = default)
+        private static async Task<TResult> ConvertTask<T, TResult>(Task<T> task)
         {
-            try
-            {
-                return func();
-            }
-            catch (Exception exc)
-            {
-                LogException(exc, logger);
-            }
+            var obj = await task.ConfigureAwait(false);
 
-            return defaultValue;
-        }
+            if (obj is null)
+                return default!;
 
-        public static void LogException(Exception exc, ILogger logger = null)
-        {
-            if (logger != null)
-            {
-                logger.LogError(exc, "An exception occured unexpectedly");
-            }
-            else
-            {
-                Debug.WriteLine("An exception occured unexpectedly.");
-                Debug.WriteLine(exc.ToString());
-            }
+            return (TResult)(object)obj;
         }
     }
 }

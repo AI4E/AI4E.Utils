@@ -26,26 +26,28 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.Reflection;
-
-namespace AI4E.Utils
+namespace System.Reflection
 {
-    public static class CustomAttributeProviderExtension
+    public static class AI4EUtilsCustomAttributeProviderExtension
     {
-        public static bool IsDefined<TCustomAttribute>(this ICustomAttributeProvider attributeProvider, bool inherit = false) 
+        public static bool IsDefined<TCustomAttribute>(
+            this ICustomAttributeProvider attributeProvider,
+            bool inherit = false) 
             where TCustomAttribute : Attribute
         {
-            if (attributeProvider == null)
-                throw new ArgumentNullException(nameof(attributeProvider));
-
+#pragma warning disable CA1062
             return attributeProvider.IsDefined(typeof(TCustomAttribute), inherit);
+#pragma warning restore CA1062
         }
 
-        public static TCustomAttribute[] GetCustomAttributes<TCustomAttribute>(this ICustomAttributeProvider attributeProvider, bool inherit = false)
+        public static TCustomAttribute[] GetCustomAttributes<TCustomAttribute>(
+            this ICustomAttributeProvider attributeProvider,
+            bool inherit = false)
             where TCustomAttribute : Attribute
         {
+#pragma warning disable CA1062
             return (TCustomAttribute[])attributeProvider.GetCustomAttributes(typeof(TCustomAttribute), inherit);
+#pragma warning restore CA1062
         }
     }
 }

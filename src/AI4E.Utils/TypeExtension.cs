@@ -53,62 +53,96 @@
 * --------------------------------------------------------------------------------------------------------------------
 */
 
-using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
-namespace AI4E.Utils
+namespace System
 {
-    public static class TypeExtension
+    public static class AI4EUtilsTypeExtension
     {
-        public static PropertyInfo[] GetPublicProperties(this Type type)
+        public static bool IsDefined<TCustomAttribute>(
+            this Type type,
+            bool inherit = false)
+            where TCustomAttribute : Attribute
         {
-            if (type.IsInterface)
+#pragma warning disable CA1062
+            return (type as ICustomAttributeProvider).IsDefined<TCustomAttribute>(inherit);
+#pragma warning restore CA1062
+        }
+
+        public static TCustomAttribute[] GetCustomAttributes<TCustomAttribute>(
+            this Type type,
+            bool inherit = false)
+            where TCustomAttribute : Attribute
+        {
+#pragma warning disable CA1062
+            return (type as ICustomAttributeProvider).GetCustomAttributes<TCustomAttribute>(inherit);
+#pragma warning restore CA1062
+        }
+
+        // This is a conditional weak table to allow assembly unloading.
+        private static readonly ConditionalWeakTable<Type, ImmutableList<PropertyInfo>> _publicPropertyLookup
+            = new ConditionalWeakTable<Type, ImmutableList<PropertyInfo>>();
+
+        public static IReadOnlyList<PropertyInfo> GetPublicProperties(this Type type)
+        {
+#pragma warning disable CA1062
+            if (!type.IsInterface)
+#pragma warning restore CA1062
+                return type.GetProperties(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
+
+            return _publicPropertyLookup.GetValue(type, BuildPublicPropertyList);
+        }
+
+        private static ImmutableList<PropertyInfo> BuildPublicPropertyList(Type type)
+        {
+            var propertyInfos = ImmutableList.CreateBuilder<PropertyInfo>();
+
+            var considered = new List<Type>();
+            var queue = new Queue<Type>();
+            considered.Add(type);
+            queue.Enqueue(type);
+
+            while (queue.Count > 0)
             {
-                var propertyInfos = new List<PropertyInfo>();
-
-                var considered = new List<Type>();
-                var queue = new Queue<Type>();
-                considered.Add(type);
-                queue.Enqueue(type);
-                while (queue.Count > 0)
+                var subType = queue.Dequeue();
+                foreach (var subInterface in subType.GetInterfaces())
                 {
-                    var subType = queue.Dequeue();
-                    foreach (var subInterface in subType.GetInterfaces())
-                    {
-                        if (considered.Contains(subInterface)) continue;
+                    if (considered.Contains(subInterface))
+                        continue;
 
-                        considered.Add(subInterface);
-                        queue.Enqueue(subInterface);
-                    }
-
-                    var typeProperties = subType.GetProperties(
-                        BindingFlags.FlattenHierarchy
-                        | BindingFlags.Public
-                        | BindingFlags.Instance);
-
-                    var newPropertyInfos = typeProperties
-                        .Where(x => !propertyInfos.Contains(x));
-
-                    propertyInfos.InsertRange(0, newPropertyInfos);
+                    considered.Add(subInterface);
+                    queue.Enqueue(subInterface);
                 }
 
-                return propertyInfos.ToArray();
+                var typeProperties = subType.GetProperties(
+                    BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
+
+                var newPropertyInfos = typeProperties.Where(x => !propertyInfos.Contains(x));
+
+                propertyInfos.InsertRange(0, newPropertyInfos);
             }
 
-            return type.GetProperties(BindingFlags.FlattenHierarchy
-                | BindingFlags.Public | BindingFlags.Instance);
+            return propertyInfos.ToImmutable();
         }
 
         public static string GetUnqualifiedTypeName(this Type type)
         {
+#pragma warning disable CA1062
             return type.ToString();
+#pragma warning restore CA1062
         }
 
         public static bool IsDelegate(this Type type)
         {
+#pragma warning disable CA1062
             if (type.IsValueType)
+#pragma warning restore CA1062
                 return false;
 
             if (type.IsInterface)
@@ -131,7 +165,9 @@ namespace AI4E.Utils
         /// <returns>True if <paramref name="type"/> is an ordinary class, false otherwise.</returns>
         public static bool IsOrdinaryClass(this Type type)
         {
+#pragma warning disable CA1062
             if (type.IsValueType)
+#pragma warning restore CA1062
                 return false;
 
             if (type.IsDelegate())
@@ -239,10 +275,9 @@ namespace AI4E.Utils
             if (type == typeof(object))
                 return "object";
 
-            if (type.IsGenericType)
-                return GetGenericFriendlyName(type);
-
-            return type.Name;
+#pragma warning disable CA1062
+            return type.IsGenericType ? GetGenericFriendlyName(type) : type.Name;
+#pragma warning restore CA1062
         }
 
         private static string GetGenericFriendlyName(Type type)
@@ -256,7 +291,51 @@ namespace AI4E.Utils
 
         public static bool CanContainNull(this Type type)
         {
-            return !type.IsValueType || type.IsGenericTypeDefinition && type.GetGenericTypeDefinition() == typeof(Nullable<>);
+#pragma warning disable CA1062
+            return !type.IsValueType
+                || type.IsConstructedGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
+#pragma warning restore CA1062
+        }
+
+        public static bool IsAssignableFromNullable(this Type type, Type nullable)
+        {
+            if (nullable is null)
+                return false;
+
+            var baseType = Nullable.GetUnderlyingType(nullable);
+
+#pragma warning disable CA1062 
+            return !(baseType is null) && type.IsAssignableFrom(baseType);
+#pragma warning restore CA1062
+        }
+
+        // TODO: Exception type
+        private static readonly Type _voidTaskResultType = Type.GetType("System.Threading.Tasks.VoidTaskResult")
+            ?? throw new Exception($"Unable to reflect type 'System.Threading.Tasks.VoidTaskResult'.");
+
+        public static Type? GetTaskResultType(this Type taskType)
+        {
+            if (!typeof(Task).IsAssignableFrom(taskType))
+            {
+                return null;
+            }
+
+#pragma warning disable CA1062
+            if (!taskType.IsGenericType)
+#pragma warning restore CA1062
+            {
+                return typeof(void);
+            }
+
+            var resultType = taskType.GetGenericArguments()[0];
+            return resultType == _voidTaskResultType ? typeof(void) : resultType;
+        }
+
+        public static bool IsTaskType(this Type type, [NotNullWhen(true)] out Type? resultType)
+        {
+            resultType = type.GetTaskResultType();
+
+            return resultType != null;
         }
     }
 }

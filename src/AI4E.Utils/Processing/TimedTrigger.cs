@@ -37,7 +37,7 @@ namespace AI4E.Utils.Processing
         public TimedTrigger(TimeSpan interval)
         {
             if (interval < TimeSpan.Zero)
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(interval));
 
             Interval = interval;
         }

@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>$(FrameworkVersions)</TargetFrameworks>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -15,7 +16,7 @@
     <PackageReference Include="System.Memory" Version="4.5.2" />
 
     <!-- We need this for the IAsyncDisposable and IAsyncEnumerable definition -->
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.0.0-preview6.19259.10" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.0.0-rc1.19456.4" />
   </ItemGroup>
 
   <ItemGroup>

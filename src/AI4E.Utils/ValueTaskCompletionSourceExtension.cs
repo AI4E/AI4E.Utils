@@ -39,18 +39,19 @@ namespace AI4E.Utils
         /// into the <see cref="TaskStatus.Faulted"/> or <see cref="TaskStatus.Canceled"/> state,
         /// depending on the type of exception.
         /// </summary>
-        /// <typeparam name="TResult">The type of the result value associated with the <see cref="ValueTaskCompletionSource{TResult}"/>.</typeparam>
+        /// <typeparam name="TResult">
+        /// The type of the result value associated with the <see cref="ValueTaskCompletionSource{TResult}"/>.
+        /// </typeparam>
         /// <param name="taskCompletionSource">The task completion source.</param>
         /// <param name="exception">The exception to bind to the <see cref="ValueTask{TResult}"/>.</param>
         /// <returns>True if the operation was succesful, false otherwise.</returns>
         /// <exception cref="ArgumentNullException">
         /// Thrown if any of <paramref name="taskCompletionSource"/> or <paramref name="exception"/> is <c>null</c>.
         /// </exception>
-        public static bool TrySetExceptionOrCanceled<TResult>(this ValueTaskCompletionSource<TResult> taskCompletionSource, Exception exception)
+        public static bool TrySetExceptionOrCanceled<TResult>(
+            this ValueTaskCompletionSource<TResult> taskCompletionSource,
+            Exception exception)
         {
-            if (taskCompletionSource == null)
-                throw new ArgumentNullException(nameof(taskCompletionSource));
-
             if (exception == null)
                 throw new ArgumentNullException(nameof(exception));
 
@@ -74,7 +75,9 @@ namespace AI4E.Utils
         /// into the <see cref="TaskStatus.Faulted"/> or <see cref="TaskStatus.Canceled"/> state,
         /// depending on the type of exception.
         /// </summary>
-        /// <typeparam name="TResult">The type of the result value associated with the <see cref="ValueTaskCompletionSource{TResult}"/>.</typeparam>
+        /// <typeparam name="TResult">
+        /// The type of the result value associated with the <see cref="ValueTaskCompletionSource{TResult}"/>.
+        /// </typeparam>
         /// <param name="taskCompletionSource">The task completion source.</param>
         /// <param name="exception">The exception to bind to the <see cref="ValueTask{TResult}"/>.</param>
         /// <exception cref="ArgumentNullException">
@@ -82,13 +85,18 @@ namespace AI4E.Utils
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <see cref="ValueTask{TResult}"/> is already in one of the three final states:
-        /// <see cref="TaskStatus.RanToCompletion"/>, <see cref="TaskStatus.Faulted"/>, or <see cref="TaskStatus.Canceled"/>.
+        /// <see cref="TaskStatus.RanToCompletion"/>, <see cref="TaskStatus.Faulted"/>,
+        /// or <see cref="TaskStatus.Canceled"/>.
         /// </exception>
-        public static void SetExceptionOrCanceled<TResult>(this ValueTaskCompletionSource<TResult> taskCompletionSource, Exception exception)
+        public static void SetExceptionOrCanceled<TResult>(
+            this ValueTaskCompletionSource<TResult> taskCompletionSource,
+            Exception exception)
         {
             if (!TrySetExceptionOrCanceled(taskCompletionSource, exception))
             {
-                throw new InvalidOperationException("The underlying Task<TResult> is already in one of the three final states: RanToCompletion, Faulted, or Canceled.");
+                throw new InvalidOperationException(
+                    "The underlying Task<TResult> is already in one of the three final states:" +
+                    " RanToCompletion, Faulted, or Canceled.");
             }
         }
 
@@ -103,11 +111,10 @@ namespace AI4E.Utils
         /// <exception cref="ArgumentNullException">
         /// Thrown if any of <paramref name="taskCompletionSource"/> or <paramref name="exception"/> is <c>null</c>.
         /// </exception>
-        public static bool TrySetExceptionOrCanceled(this ValueTaskCompletionSource taskCompletionSource, Exception exception)
+        public static bool TrySetExceptionOrCanceled(
+            this ValueTaskCompletionSource taskCompletionSource,
+            Exception exception)
         {
-            if (taskCompletionSource == null)
-                throw new ArgumentNullException(nameof(taskCompletionSource));
-
             if (exception == null)
                 throw new ArgumentNullException(nameof(exception));
 
@@ -138,13 +145,18 @@ namespace AI4E.Utils
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <see cref="ValueTask"/> is already in one of the three final states:
-        /// <see cref="TaskStatus.RanToCompletion"/>, <see cref="TaskStatus.Faulted"/>, or <see cref="TaskStatus.Canceled"/>.
+        /// <see cref="TaskStatus.RanToCompletion"/>, <see cref="TaskStatus.Faulted"/>,
+        /// or <see cref="TaskStatus.Canceled"/>.
         /// </exception>
-        public static void SetExceptionOrCanceled(this ValueTaskCompletionSource taskCompletionSource, Exception exception)
+        public static void SetExceptionOrCanceled(
+            this ValueTaskCompletionSource taskCompletionSource,
+            Exception exception)
         {
             if (!TrySetExceptionOrCanceled(taskCompletionSource, exception))
             {
-                throw new InvalidOperationException("The underlying Task<TResult> is already in one of the three final states: RanToCompletion, Faulted, or Canceled.");
+                throw new InvalidOperationException(
+                    "The underlying Task<TResult> is already in one of the three final states:" +
+                    " RanToCompletion, Faulted, or Canceled.");
             }
         }
     }
