@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>$(FrameworkVersions)</TargetFrameworks>
     <RootNamespace>AI4E.Utils</RootNamespace>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -10,5 +11,5 @@
     <PackageReleaseNotes></PackageReleaseNotes>
     <Description>Utility library that implements automatic, zero configuration deep object clone.</Description>
   </PropertyGroup>
-  
+
 </Project>

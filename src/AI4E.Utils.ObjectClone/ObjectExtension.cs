@@ -58,6 +58,8 @@
 
 #pragma warning disable CA1720 
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace AI4E.Utils
 {
     public static class ObjectExtension
@@ -68,12 +70,18 @@ namespace AI4E.Utils
         /// <typeparam name="T">Object type.</typeparam>
         /// <param name="obj">Object to copy.</param>
         /// <returns></returns>
+        [return: MaybeNull]
         public static T DeepClone<T>(this T obj)
         {
-            if (obj == null)
-                return default;
+            if (obj is null)
+                return default!;
 
-            return (T)DeepClone((object)obj);
+            var result = DeepClone((object)obj);
+
+            if (result is null)
+                return default!;
+
+            return (T)result;
         }
 
         /// <summary>
@@ -81,10 +89,10 @@ namespace AI4E.Utils
         /// </summary>
         /// <param name="obj">Object to copy.</param>
         /// <returns></returns>
-        public static object DeepClone(this object obj)
+        public static object? DeepClone(this object obj)
         {
-            if (obj == null)
-                return null;
+            if (obj is null)
+                return null!;
 
             return CopyExpressionBuilder.DeepCopy(obj);
         }

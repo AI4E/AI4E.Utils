@@ -99,7 +99,7 @@ namespace AI4E.Utils
         {
             var fieldsList = new List<FieldInfo>();
 
-            for (var typeCache = type; typeCache != null; typeCache = typeCache.BaseType)
+            for (var typeCache = type; typeCache != null; typeCache = typeCache.BaseType!)
             {
                 var fields = typeCache.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy).AsEnumerable();
 
@@ -143,7 +143,7 @@ namespace AI4E.Utils
                    type != typeof(decimal);
         }
 
-        private static bool HasInItsHierarchyFieldsWithClasses(Type type, HashSet<Type> alreadyCheckedTypes = null)
+        private static bool HasInItsHierarchyFieldsWithClasses(Type type, HashSet<Type>? alreadyCheckedTypes = null)
         {
             alreadyCheckedTypes ??= new HashSet<Type>();
             alreadyCheckedTypes.Add(type);

@@ -58,6 +58,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -68,14 +69,25 @@ namespace AI4E.Utils
     internal static partial class CopyExpressionBuilder
     {
         private static readonly Type _objectType = typeof(object);
+        private static readonly MethodInfo _memberwiseCloneMethod
+            = _objectType.GetMethod("MemberwiseClone", BindingFlags.NonPublic | BindingFlags.Instance)
+             ?? throw new Exception("Unable to reflect method 'System.Object.MemberwiseClone'.");
+
         private static readonly Type _objectDictionaryType = typeof(Dictionary<object, object>);
-        private static readonly MethodInfo _memberwiseCloneMethod = _objectType.GetMethod("MemberwiseClone", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly PropertyInfo _objectDictionaryTypeIndexerProperty = _objectDictionaryType.GetProperty("Item");
+        private static readonly PropertyInfo _objectDictionaryTypeIndexerProperty
+            = _objectDictionaryType.GetProperty("Item")
+            ?? throw new Exception("Unable to reflectindexer of type 'System.Collections.Generics.Dictionary`2'.");
 
         private static readonly Type _fieldInfoType = typeof(FieldInfo);
-        private static readonly MethodInfo _setValueMethod = _fieldInfoType.GetMethod("SetValue", new[] { _objectType, _objectType });
+        private static readonly MethodInfo _setValueMethod =
+            _fieldInfoType.GetMethod("SetValue", new[] { _objectType, _objectType })
+            ?? throw new Exception("Unable to reflect method 'System.Reflection.FieldInfo.SetValue'.");
+
         private static readonly Type _thisType = typeof(CopyExpressionBuilder);
-        private static readonly MethodInfo _deepCopyByExpressionTreeObjMethod = _thisType.GetMethod(nameof(DeepCopyByExpressionTreeObj), BindingFlags.NonPublic | BindingFlags.Static);
+        private static readonly MethodInfo _deepCopyByExpressionTreeObjMethod
+            = _thisType.GetMethod(nameof(DeepCopyByExpressionTreeObj), BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new Exception(
+                "Unable to reflect method 'AI4E.Utils.CopyExpressionBuilder.DeepCopyByExpressionTreeObj'.");
 
         // This is a conditional weak table to allow assembly unloading.
         private static readonly ConditionalWeakTable<Type, Func<object, Dictionary<object, object>, object>> _compiledCopyFunctions =
@@ -94,14 +106,16 @@ namespace AI4E.Utils
         private static readonly ConstantExpression _falseConstantExpression = Expression.Constant(false, typeof(bool));
 #pragma warning restore HAA0601
 
-        private static readonly MethodInfo _arrayGetLengthMethod = typeof(Array).GetMethod(nameof(Array.GetLength), BindingFlags.Public | BindingFlags.Instance);
+        private static readonly MethodInfo _arrayGetLengthMethod
+            = typeof(Array).GetMethod(nameof(Array.GetLength), BindingFlags.Public | BindingFlags.Instance)
+             ?? throw new Exception("Unable to reflect method 'System.Array.GetLength'.");
 
-        internal static object DeepCopy(object original)
+        internal static object? DeepCopy(object original)
         {
             return DeepCopyByExpressionTreeObj(original, forceDeepCopy: false, new Dictionary<object, object>(new ReferenceEqualityComparer()));
         }
 
-        private static object DeepCopyByExpressionTreeObj(object original, bool forceDeepCopy, Dictionary<object, object> copiedReferencesDict)
+        private static object? DeepCopyByExpressionTreeObj(object original, bool forceDeepCopy, Dictionary<object, object> copiedReferencesDict)
         {
             if (original == null)
             {
@@ -186,7 +200,7 @@ namespace AI4E.Utils
 
             ///// COPY ELEMENTS OF ARRAY
 
-            if (type.IsArray && type.GetElementType().IsTypeToDeepCopy())
+            if (type.IsArray && type.GetElementType()!.IsTypeToDeepCopy())
             {
                 CreateArrayCopyLoopExpression(type,
                                               inputParameter,
@@ -356,13 +370,15 @@ namespace AI4E.Utils
             ///// }
             ///// ENDLABELFORLOOP1:
 
+            Debug.Assert(type.IsArray);
+
             var rank = type.GetArrayRank();
 
             var indices = GenerateIndices(rank);
 
             variables.AddRange(indices);
 
-            var elementType = type.GetElementType();
+            var elementType = type.GetElementType()!;
 
             var assignExpression = ArrayFieldToArrayFieldAssignExpression(inputParameter, inputDictionary, outputVariable, elementType, type, indices);
 
