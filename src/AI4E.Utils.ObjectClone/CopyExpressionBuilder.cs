@@ -57,11 +57,11 @@
 */
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace AI4E.Utils
 {
@@ -76,22 +76,23 @@ namespace AI4E.Utils
         private static readonly MethodInfo _setValueMethod = _fieldInfoType.GetMethod("SetValue", new[] { _objectType, _objectType });
         private static readonly Type _thisType = typeof(CopyExpressionBuilder);
         private static readonly MethodInfo _deepCopyByExpressionTreeObjMethod = _thisType.GetMethod(nameof(DeepCopyByExpressionTreeObj), BindingFlags.NonPublic | BindingFlags.Static);
-        private static readonly ConcurrentDictionary<Type, Func<object, Dictionary<object, object>, object>> _compiledCopyFunctions =
-                    new ConcurrentDictionary<Type, Func<object, Dictionary<object, object>, object>>();
 
-#pragma warning disable HAA0603 // Delegate allocation from a method group
-        private static readonly Func<Type, Func<object, Dictionary<object, object>, object>> _createCompiledLambdaCopyFunctionForType = CreateCompiledLambdaCopyFunctionForType;
-#pragma warning restore HAA0603 // Delegate allocation from a method group
+        // This is a conditional weak table to allow assembly unloading.
+        private static readonly ConditionalWeakTable<Type, Func<object, Dictionary<object, object>, object>> _compiledCopyFunctions =
+                    new ConditionalWeakTable<Type, Func<object, Dictionary<object, object>, object>>();
 
-#pragma warning disable HAA0601 // Value type to reference type conversion causing boxing allocation
+#pragma warning disable HAA0603
+        private static readonly ConditionalWeakTable<Type, Func<object, Dictionary<object, object>, object>>.CreateValueCallback _createCompiledLambdaCopyFunctionForType = CreateCompiledLambdaCopyFunctionForType;
+#pragma warning restore HAA0603
+
+#pragma warning disable HAA0601
         private static readonly ConstantExpression _zeroIntConstantExpression = Expression.Constant(0, typeof(int));
         private static readonly ConstantExpression _oneIntConstantExpression = Expression.Constant(1, typeof(int));
         private static readonly ConstantExpression _twoIntConstantExpression = Expression.Constant(2, typeof(int));
 
         private static readonly ConstantExpression _trueConstantExpression = Expression.Constant(true, typeof(bool));
         private static readonly ConstantExpression _falseConstantExpression = Expression.Constant(false, typeof(bool));
-
-#pragma warning restore HAA0601 // Value type to reference type conversion causing boxing allocation
+#pragma warning restore HAA0601
 
         private static readonly MethodInfo _arrayGetLengthMethod = typeof(Array).GetMethod(nameof(Array.GetLength), BindingFlags.Public | BindingFlags.Instance);
 
@@ -142,7 +143,7 @@ namespace AI4E.Utils
             // That is why we do not modify the old dictionary instance but
             // we replace it with a new instance everytime.
 
-            return _compiledCopyFunctions.GetOrAdd(type, _createCompiledLambdaCopyFunctionForType);
+            return _compiledCopyFunctions.GetValue(type, _createCompiledLambdaCopyFunctionForType);
         }
 
         private static Func<object, Dictionary<object, object>, object> CreateCompiledLambdaCopyFunctionForType(Type type)

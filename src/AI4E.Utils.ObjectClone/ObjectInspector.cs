@@ -57,10 +57,10 @@
 */
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace AI4E.Utils
 {
@@ -68,11 +68,13 @@ namespace AI4E.Utils
     {
         #region Fields
 
-        private static readonly ConcurrentDictionary<Type, bool> _isStructTypeToDeepCopy = new ConcurrentDictionary<Type, bool>();
+        // This is a conditional weak table to allow assembly unloading.
+        private static readonly ConditionalWeakTable<Type, CacheEntry> _isStructTypeToDeepCopy
+            = new ConditionalWeakTable<Type, CacheEntry>();
 
         // We cache the delegates for perf reasons.
 #pragma warning disable HAA0603
-        private static readonly Func<Type, bool> _isStructTypeToDeepCopyFactory = IsStructWhichNeedsDeepCopyFactory;
+        private static readonly ConditionalWeakTable<Type, CacheEntry>.CreateValueCallback _isStructTypeToDeepCopyFactory = IsStructWhichNeedsDeepCopyFactory;
         private static readonly Func<Type, bool> _isClassOtherThanString = TypeExtension.IsClassOtherThanString;
 #pragma warning restore HAA0603
 
@@ -124,12 +126,13 @@ namespace AI4E.Utils
             // That is why we do not modify the old dictionary instance but
             // we replace it with a new instance everytime.
 
-            return _isStructTypeToDeepCopy.GetOrAdd(type, _isStructTypeToDeepCopyFactory);
+            return _isStructTypeToDeepCopy.GetValue(type, _isStructTypeToDeepCopyFactory)
+                .IsTypeToDeepCopy;
         }
 
-        private static bool IsStructWhichNeedsDeepCopyFactory(Type type)
+        private static CacheEntry IsStructWhichNeedsDeepCopyFactory(Type type)
         {
-            return IsStructOtherThanBasicValueTypes(type) && HasInItsHierarchyFieldsWithClasses(type);
+            return new CacheEntry(IsStructOtherThanBasicValueTypes(type) && HasInItsHierarchyFieldsWithClasses(type));
         }
 
         private static bool IsStructOtherThanBasicValueTypes(Type type)
@@ -169,6 +172,16 @@ namespace AI4E.Utils
             }
 
             return false;
+        }
+
+        private sealed class CacheEntry
+        {
+            public CacheEntry(bool isTypeToDeepCopy)
+            {
+                IsTypeToDeepCopy = isTypeToDeepCopy;
+            }
+
+            public bool IsTypeToDeepCopy { get; }
         }
     }
 }

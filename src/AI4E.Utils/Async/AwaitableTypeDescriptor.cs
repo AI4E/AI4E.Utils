@@ -45,8 +45,9 @@ namespace AI4E.Utils.Async
         private static readonly Type[] _singleActionParameter = new[] { typeof(Action) };
         private static readonly ParameterModifier[] _emptyParameterModifiers = Array.Empty<ParameterModifier>();
 
-        private static readonly ConcurrentDictionary<Type, AwaitableTypeDescriptor> _cache
-            = new ConcurrentDictionary<Type, AwaitableTypeDescriptor>();
+        // This is a conditional weak table to allow assembly unloading.
+        private static readonly ConditionalWeakTable<Type, AwaitableTypeDescriptor> _cache
+            = new ConditionalWeakTable<Type, AwaitableTypeDescriptor>();
 
         private static readonly MethodInfo _notifyCompletionOnCompletedMethod
             = typeof(INotifyCompletion).GetMethod(
@@ -67,7 +68,7 @@ namespace AI4E.Utils.Async
             if (type == null)
                 throw new ArgumentNullException(nameof(type));
 
-            var result = _cache.GetOrAdd(type, BuildTypeDescriptor);
+            var result = _cache.GetValue(type, BuildTypeDescriptor);
             return result;
         }
 
