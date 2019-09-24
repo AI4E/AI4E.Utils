@@ -33,7 +33,7 @@ using static System.Diagnostics.Debug;
 
 namespace System.Security.Cryptography
 {
-    public static class HashAlgorithmExtension
+    public static class AI4EUtilsMemoryCompatibilityHashAlgorithmExtensions
     {
         private static readonly TryComputeHashShim? _tryComputeHashShim= BuildTryComputeHashShim(typeof(HashAlgorithm));
 

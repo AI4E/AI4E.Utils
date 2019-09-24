@@ -108,7 +108,7 @@ namespace AI4E.Utils.Memory
 
         public ReadOnlySpan<byte> Read()
         {
-            var count = ReadInt32();
+            var count = Read7BitEncodedInt();
             return Read(count);
         }
 
@@ -247,6 +247,30 @@ namespace AI4E.Utils.Memory
             {
                 throw new Exception("Not enough space left"); // TODO
             }
+        }
+
+        private int Read7BitEncodedInt()
+        {
+            // Read out an Int32 7 bits at a time. The high bit
+            // of the byte when on means to continue reading more bytes.
+            var count = 0;
+            var shift = 0;
+            byte b;
+            do
+            {
+                // Check for a corrupted stream.  Read a max of 5 bytes.
+                // In a future version, add a DataFormatException.
+                if (shift == 5 * 7)  // 5 bytes max per Int32, shift += 7
+                {
+                    throw new FormatException("Bad7BitInt32"); // TODO
+                }
+
+                // ReadByte handles end of stream cases for us.
+                b = ReadByte();
+                count |= (b & 0x7F) << shift;
+                shift += 7;
+            } while ((b & 0x80) != 0);
+            return count;
         }
     }
 }

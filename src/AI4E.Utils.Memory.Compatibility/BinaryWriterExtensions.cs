@@ -27,17 +27,17 @@
  */
 
 using System.Buffers;
-using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using static System.Diagnostics.Debug;
+using AI4E.Utils;
+using System.Diagnostics;
 
 namespace System.IO
 {
-    public static class BinaryWriterExtension
+    public static class AI4EUtilsMemoryCompatibilityBinaryWriterExtensions
     {
         private static readonly WriteBytesShim? _writeBytesShim = BuildWriteBytesShim(typeof(BinaryWriter));
         private static readonly WriteCharsShim? _writeCharsShim = BuildWriteCharsShim(typeof(BinaryWriter));
@@ -49,7 +49,7 @@ namespace System.IO
             if (writeMethod == null)
                 return null;
 
-            Assert(writeMethod.ReturnType == typeof(void));
+            Debug.Assert(writeMethod.ReturnType == typeof(void));
 
             var binaryWriterParameter = Expression.Parameter(binaryWriterType, "writer");
             var bufferParameter = Expression.Parameter(typeof(ReadOnlySpan<byte>), "buffer");
@@ -64,7 +64,7 @@ namespace System.IO
             if (writeMethod == null)
                 return null;
 
-            Assert(writeMethod.ReturnType == typeof(void));
+            Debug.Assert(writeMethod.ReturnType == typeof(void));
 
             var binaryWriterParameter = Expression.Parameter(binaryWriterType, "writer");
             var charsParameter = Expression.Parameter(typeof(ReadOnlySpan<char>), "chars");
@@ -77,27 +77,23 @@ namespace System.IO
 
         public static void Write(this BinaryWriter writer, ReadOnlySpan<byte> buffer)
         {
-            if (writer == null)
-                throw new ArgumentNullException(nameof(writer));
-
             if (_writeBytesShim != null)
             {
                 _writeBytesShim(writer, buffer);
                 return;
             }
 
+#pragma warning disable CA1062
             writer.Flush();
+#pragma warning restore CA1062
 
             var underlyingStream = writer.BaseStream;
-            Assert(underlyingStream != null);
+            Debug.Assert(underlyingStream != null);
             underlyingStream!.Write(buffer);
         }
 
         public static void Write(this BinaryWriter writer, ReadOnlySpan<char> chars)
         {
-            if (writer == null)
-                throw new ArgumentNullException(nameof(writer));
-
             if (_writeCharsShim != null)
             {
                 _writeCharsShim(writer, chars);
@@ -113,7 +109,7 @@ namespace System.IO
                 {
                     var byteCount = encoding.GetBytes(chars, array);
 
-                    writer.Write7BitEncodedInt(byteCount);
+                    PrefixCodingHelper.Write7BitEncodedInt(writer, byteCount);
                     writer.Write(array, index: 0, byteCount);
                 }
                 finally
@@ -182,17 +178,6 @@ namespace System.IO
             }
 
             return _ => null;
-        }
-
-        private static void Write7BitEncodedInt(this BinaryWriter writer, int value)
-        {
-            var v = (uint)value;
-            while (v >= 0x80)
-            {
-                writer.Write((byte)(v | 0x80));
-                v >>= 7;
-            }
-            writer.Write((byte)v);
         }
     }
 }

@@ -56,7 +56,7 @@ namespace Microsoft.Extensions.DependencyInjection
     /// <summary>
     /// Extension methods for configuring the application part manager.
     /// </summary>
-    public static class ServiceCollectionExtension
+    public static class AI4EUtilsApplicationPartsServiceCollectionExtensions
     {
         /// <summary>
         /// Returns the application part manager that that is registered in the specified service collection.
@@ -67,9 +67,6 @@ namespace Microsoft.Extensions.DependencyInjection
         public static ApplicationPartManager GetApplicationPartManager(
             this IServiceCollection services)
         {
-            if (services == null)
-                throw new ArgumentNullException(nameof(services));
-
             var manager = services.GetService<ApplicationPartManager>();
             if (manager == null)
             {
@@ -98,9 +95,6 @@ namespace Microsoft.Extensions.DependencyInjection
             this IServiceCollection services,
             Action<ApplicationPartManager> configuration)
         {
-            if (services == null)
-                throw new ArgumentNullException(nameof(services));
-
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
 

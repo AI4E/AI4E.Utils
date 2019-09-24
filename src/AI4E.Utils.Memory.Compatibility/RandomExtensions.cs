@@ -33,7 +33,7 @@ using static System.Diagnostics.Debug;
 
 namespace System
 {
-    public static class RandomExtension
+    public static class AI4EUtilsMemoryCompatibilityRandomExtensions
     {
         private static readonly NextBytesShim? _nextBytesShim= BuildNextBytesShim(typeof(Random));
 

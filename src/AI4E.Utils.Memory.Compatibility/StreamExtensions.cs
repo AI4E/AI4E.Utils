@@ -36,7 +36,7 @@ using static System.Diagnostics.Debug;
 
 namespace System.IO
 {
-    public static class StreamExtension
+    public static class AI4EUtilsMemoryCompatibilityStreamExtensions
     {
         private static readonly Func<Stream, Memory<byte>, CancellationToken, ValueTask<int>>? _readAsyncShim;
         private static readonly Func<Stream, ReadOnlyMemory<byte>, CancellationToken, ValueTask>? _writeAsyncShim;
@@ -48,7 +48,7 @@ namespace System.IO
         private delegate void WriteShim(Stream stream, ReadOnlySpan<byte> buffer);
 
 #pragma warning disable CA1810
-        static StreamExtension()
+        static AI4EUtilsMemoryCompatibilityStreamExtensions()
 #pragma warning restore CA1810
         {
             // Mono seems to define the methods but throws a NotImplementedException when called.

@@ -26,7 +26,7 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
- #pragma warning disable CA1815
+#pragma warning disable CA1815
 
 using System;
 using static System.Diagnostics.Debug;
@@ -66,13 +66,6 @@ namespace AI4E.Utils.Memory
         {
             return _memory.Slice(0, _position);
         }
-    }
-
-    public enum ByteOrder
-    {
-        Native,
-        BigEndian,
-        LittleEndian
     }
 }
 

@@ -26,42 +26,38 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
+using System.Text;
 using System.Buffers;
-using static System.Diagnostics.Debug;
+using AI4E.Utils;
+using System.Diagnostics;
 
-namespace AI4E.Utils.Memory
+namespace System.IO
 {
-    public static partial class MemoryExtensions
+    public static class AI4EUtilsMemoryBinaryWriterExtensions
     {
-        public static ArrayPoolReleaser<byte> Base64Decode(this string str, out Memory<byte> bytes)
+        public static void WriteBytes(this BinaryWriter writer, ReadOnlySpan<byte> bytes)
         {
-            if (str == null)
-            {
-                throw new ArgumentNullException(nameof(str));
-            }
-
-            return Base64Decode(str.AsSpan(), out bytes);
+#pragma warning disable CA1062
+            PrefixCodingHelper.Write7BitEncodedInt(writer, bytes.Length);
+#pragma warning restore CA1062 
+            writer.Write(bytes);
         }
 
-        public static ArrayPoolReleaser<byte> Base64Decode(in this ReadOnlySpan<char> chars, out Memory<byte> bytes)
+        public static void WriteUtf8(this BinaryWriter writer, ReadOnlySpan<char> chars)
         {
-            var minBytesLength = Base64Coder.ComputeBase64DecodedLength(chars);
-            var releaser = ArrayPool<byte>.Shared.RentExact(minBytesLength, out bytes);
+            var bytesCount = Encoding.UTF8.GetByteCount(chars);
 
-            try
+#pragma warning disable CA1062
+            PrefixCodingHelper.Write7BitEncodedInt(writer, bytesCount);
+#pragma warning restore CA1062
+
+            if (bytesCount > 0)
             {
-                var success = Base64Coder.TryFromBase64Chars(chars, bytes.Span, out var bytesWritten);
-                Assert(success);
+                using var bytesOwner = MemoryPool<byte>.Shared.RentExact(bytesCount);
 
-                bytes = bytes.Slice(start: 0, length: bytesWritten);
-
-                return releaser;
-            }
-            catch
-            {
-                releaser.Dispose();
-                throw;
+                var bytesRead = Encoding.UTF8.GetBytes(chars, bytesOwner.Memory.Span);
+                Debug.Assert(bytesRead == bytesCount);
+                writer.Write(bytesOwner.Memory.Span);
             }
         }
     }

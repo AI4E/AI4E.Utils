@@ -1,4 +1,4 @@
-/* License
+﻿/* License
  * --------------------------------------------------------------------------------------------------------------------
  * This file is part of the AI4E distribution.
  *   (https://github.com/AI4E/AI4E.Utils)
@@ -26,43 +26,17 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System.Threading;
-using System.Threading.Tasks;
+#pragma warning disable CA1815
 
-namespace System.IO
+
+namespace AI4E.Utils.Memory
 {
-    public static partial class ReadExactStreamExtension
+    public enum ByteOrder
     {
-        public static async ValueTask ReadExactAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellation)
-        {
-            if (stream == null)
-                throw new ArgumentNullException(nameof(stream));
-
-            while (buffer.Length > 0)
-            {
-                var readBytes = await stream.ReadAsync(buffer, cancellation);
-               
-                if (readBytes == 0)
-                    throw new EndOfStreamException();
-
-                buffer = buffer.Slice(readBytes);
-            }
-        }
-
-        public static void ReadExact(this Stream stream, Span<byte> buffer)
-        {
-            if (stream == null)
-                throw new ArgumentNullException(nameof(stream));
-
-            while (buffer.Length > 0)
-            {
-                var readBytes = stream.Read(buffer);
-
-                if (readBytes == 0)
-                    throw new EndOfStreamException();
-
-                buffer = buffer.Slice(readBytes);
-            }
-        }
+        Native,
+        BigEndian,
+        LittleEndian
     }
 }
+
+#pragma warning restore CA1815

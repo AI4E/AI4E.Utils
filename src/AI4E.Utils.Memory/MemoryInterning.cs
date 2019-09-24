@@ -33,8 +33,6 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
-using AI4E.Utils.Memory;
-using static System.Diagnostics.Debug;
 
 namespace AI4E.Utils.Memory
 {
@@ -127,7 +125,7 @@ namespace AI4E.Utils.Memory
             var internedValue = memoryInterning.Intern(memory);
             if (!MemoryMarshal.TryGetString(internedValue, out var result, out var start, out var length) || start != 0 || result.Length != length)
             {
-                Assert(false); // The MemoryInterning type guarantees that this is a string, but we provide a fallback for production for any case.
+                Debug.Assert(false); // The MemoryInterning type guarantees that this is a string, but we provide a fallback for production for any case.
 
                 return internedValue.ToString();
             }

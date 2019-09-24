@@ -40,6 +40,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{0E451684-7006-41A3-AFD8-C6D9CB71E52C}"
 	ProjectSection(SolutionItems) = preProject
 		src\Shared\NullabilityAttributes.cs = src\Shared\NullabilityAttributes.cs
+		src\Shared\PrefixCodingHelper.cs = src\Shared\PrefixCodingHelper.cs
 	EndProjectSection
 EndProject
 Global

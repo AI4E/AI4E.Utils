@@ -26,43 +26,40 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
-using System;
-using System.IO;
-using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace AI4E.Utils.Memory
+namespace System.IO
 {
-    public static class BinaryWriterExtension
+    public static class AI4EUtilsMemoryStreamExtensions
     {
-        public static void WriteWithLengthPrefix(this BinaryWriter writer, byte[] bytes)
+        public static async ValueTask ReadExactAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellation)
         {
-            if (writer == null)
-                throw new ArgumentNullException(nameof(writer));
-
-            if (bytes == null)
-                throw new ArgumentNullException(nameof(bytes));
-
-            writer.Write(bytes.Length);
-
-            if (bytes.Length > 0)
+            while (buffer.Length > 0)
             {
-                writer.Write(bytes);
+#pragma warning disable CA1062
+                var readBytes = await stream.ReadAsync(buffer, cancellation);
+#pragma warning restore CA1062
+
+                if (readBytes == 0)
+                    throw new EndOfStreamException();
+
+                buffer = buffer.Slice(readBytes);
             }
         }
 
-        public static void WriteUtf8(this BinaryWriter writer, ReadOnlySpan<char> str)
+        public static void ReadExact(this Stream stream, Span<byte> buffer)
         {
-            if (writer == null)
-                throw new ArgumentNullException(nameof(writer));
-
-            var bytes = Encoding.UTF8.GetBytes(str.ToArray()); // TODO: This will copy everything into an array
-            var length = bytes.Length;
-
-            writer.Write(length);
-
-            if (length > 0)
+            while (buffer.Length > 0)
             {
-                writer.Write(bytes);
+#pragma warning disable CA1062
+                var readBytes = stream.Read(buffer);
+#pragma warning restore CA1062
+
+                if (readBytes == 0)
+                    throw new EndOfStreamException();
+
+                buffer = buffer.Slice(readBytes);
             }
         }
     }

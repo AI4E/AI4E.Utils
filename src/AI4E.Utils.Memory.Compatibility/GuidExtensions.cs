@@ -34,7 +34,7 @@ using AI4E.Utils.Memory.Compatibility;
 
 namespace System
 {
-    public static class GuidExtension
+    public static class AI4EUtilsMemoryCompatibilityGuidExtensions
     {
         private static readonly TryFormatShim? _tryFormatShim = BuildTryFormatShim(typeof(Guid));
         private static readonly TryWriteBytesShim? _tryWriteBytesShim = BuildTryWriteBytesShim(typeof(Guid));

@@ -26,7 +26,7 @@
  * --------------------------------------------------------------------------------------------------------------------
  */
 
- #pragma warning disable CA1815
+#pragma warning disable CA1815
 
 using System;
 using System.Buffers.Binary;
@@ -136,7 +136,7 @@ namespace AI4E.Utils.Memory
 
             if (lengthPrefix)
             {
-                WriteInt32(span.Length);
+                Write7BitEncodedInt(span.Length);
             }
 
             span.CopyTo(Span.Slice(_offset));
@@ -246,7 +246,7 @@ namespace AI4E.Utils.Memory
 
             if (lengthPrefix)
             {
-                WriteInt32(bytesWritten);
+                Write7BitEncodedInt(bytesWritten);
             }
 
             _offset += bytesWritten;
@@ -259,6 +259,18 @@ namespace AI4E.Utils.Memory
                 throw new Exception("Not enough space left"); // TODO
             }
         }
+
+        private void Write7BitEncodedInt(int value)
+        {
+            var v = (uint)value;
+            while (v >= 0x80)
+            {
+                WriteByte((byte)(v | 0x80));
+                v >>= 7;
+            }
+            WriteByte((byte)v);
+        }
+
     }
 }
 

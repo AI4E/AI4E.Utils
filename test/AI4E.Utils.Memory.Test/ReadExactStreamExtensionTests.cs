@@ -43,7 +43,7 @@ namespace AI4E.Utils.Memory.Test
             var outBuffer = new byte[10];
             Stream stream = null;
 
-            await Assert.ThrowsExceptionAsync<ArgumentNullException>(async () =>
+            await Assert.ThrowsExceptionAsync<NullReferenceException>(async () =>
             {
                 await stream.ReadExactAsync(outBuffer, cancellation: default);
             });
@@ -82,7 +82,7 @@ namespace AI4E.Utils.Memory.Test
             var outBuffer = new byte[10];
             Stream stream = null;
 
-            Assert.ThrowsException<ArgumentNullException>(() =>
+            Assert.ThrowsException<NullReferenceException>(() =>
             {
                 stream.ReadExact(outBuffer);
             });

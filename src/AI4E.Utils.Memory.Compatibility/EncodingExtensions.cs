@@ -31,7 +31,7 @@ using static System.Diagnostics.Debug;
 
 namespace System.Text
 {
-    public static class EncodingExtension
+    public static class AI4EUtilsMemoryCompatibilityEncodingExtensions
     {
         private static readonly GetByteCountShim? _getByteCountShim = BuildGetByteCountShim(typeof(Encoding));
         private static readonly GetBytesShim? _getBytesShim = BuildGetBytesShim(typeof(Encoding));
