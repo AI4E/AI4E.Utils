@@ -164,7 +164,7 @@ namespace AI4E.Utils.ApplicationParts
             return _inner.GetEnumerator();
         }
 
-        public event EventHandler CollectionChanged;
+        public event EventHandler? CollectionChanged;
 
         private void OnCollectionChanged()
         {

@@ -46,6 +46,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace AI4E.Utils.ApplicationParts
@@ -98,7 +99,11 @@ namespace AI4E.Utils.ApplicationParts
                     $"from {typeof(ApplicationPartFactory)}.");
             }
 
-            return (ApplicationPartFactory)Activator.CreateInstance(type);
+            Debug.Assert(type != null);
+
+            var result = Activator.CreateInstance(type!) as ApplicationPartFactory;
+            Debug.Assert(result != null);
+            return result ?? DefaultApplicationPartFactory.Instance;
         }
     }
 }

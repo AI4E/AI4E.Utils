@@ -46,6 +46,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -121,7 +122,8 @@ namespace AI4E.Utils.ApplicationParts
 
             var assemblyName = assembly.GetName().Name;
             var assemblyLocation = GetAssemblyLocation(assembly);
-            var assemblyDirectory = Path.GetDirectoryName(assemblyLocation);
+            var assemblyDirectory = Path.GetDirectoryName(assemblyLocation)!;
+            Debug.Assert(assemblyDirectory != null);
 
             var relatedAssemblies = new List<Assembly>();
             for (var i = 0; i < attributes.Length; i++)

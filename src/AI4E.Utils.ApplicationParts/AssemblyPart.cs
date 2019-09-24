@@ -63,7 +63,7 @@ namespace AI4E.Utils.ApplicationParts
         /// <summary>
         /// Initializes a new <see cref="AssemblyPart"/> instance.
         /// </summary>
-        /// <param name="assembly">The backing <see cref="System.Reflection.Assembly"/>.</param>
+        /// <param name="assembly">The backing <see cref="Assembly"/>.</param>
         public AssemblyPart(Assembly assembly)
         {
             Assembly = assembly ?? throw new ArgumentNullException(nameof(assembly));
@@ -77,7 +77,7 @@ namespace AI4E.Utils.ApplicationParts
         /// <summary>
         /// Gets the name of the <see cref="ApplicationPart"/>.
         /// </summary>
-        public override string Name => Assembly.GetName().Name;
+        public override string Name => Assembly.GetName().Name ?? string.Empty;
 
         /// <inheritdoc />
         public IEnumerable<TypeInfo> Types => Assembly.DefinedTypes;

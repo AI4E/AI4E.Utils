@@ -45,6 +45,7 @@
  */
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using AI4E.Utils.ApplicationParts;
@@ -108,11 +109,17 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton(partManager);
         }
 
+        [return: MaybeNull]
         private static T GetService<T>(this IServiceCollection services)
         {
             var serviceDescriptor = services.LastOrDefault(d => d.ServiceType == typeof(T));
 
-            return (T)serviceDescriptor?.ImplementationInstance;
+            var result = serviceDescriptor?.ImplementationInstance;
+
+            if (result is null)
+                return default!;
+
+            return (T)result;
         }
     }
 }

@@ -3,7 +3,6 @@
   <PropertyGroup>
     <TargetFrameworks>$(NetStandardVersion)</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>

@@ -45,6 +45,7 @@
  */
 
 using System;
+using System.Diagnostics;
 
 namespace AI4E.Utils.ApplicationParts
 {
@@ -54,8 +55,8 @@ namespace AI4E.Utils.ApplicationParts
     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
     public sealed class ProvideApplicationPartFactoryAttribute : Attribute
     {
-        private readonly Type _applicationPartFactoryType;
-        private readonly string _applicationPartFactoryTypeName;
+        private readonly Type? _applicationPartFactoryType;
+        private readonly string? _applicationPartFactoryTypeName;
 
         /// <summary>
         /// Creates a new instance of <see cref="ProvideApplicationPartFactoryAttribute"/> with the specified type.
@@ -84,10 +85,12 @@ namespace AI4E.Utils.ApplicationParts
         /// Gets the factory type.
         /// </summary>
         /// <returns></returns>
-        public Type GetFactoryType()
+        public Type? GetFactoryType()
         {
+            Debug.Assert(_applicationPartFactoryType != null || _applicationPartFactoryTypeName != null);
+
             return _applicationPartFactoryType ??
-                Type.GetType(_applicationPartFactoryTypeName, throwOnError: true);
+                Type.GetType(_applicationPartFactoryTypeName!, throwOnError: true);
         }
     }
 }
